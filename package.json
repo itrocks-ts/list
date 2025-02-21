@@ -1,0 +1,72 @@
+{
+	"author": {
+		"name": "Baptiste Pillot",
+		"email": "baptiste@pillot.fr"
+	},
+	"dependencies": {
+		"@itrocks/action": "latest",
+		"@itrocks/action-bar": "latest",
+		"@itrocks/action-request": "latest",
+		"@itrocks/build": "latest",
+		"@itrocks/route": "latest",
+		"@itrocks/storage": "latest",
+		"@itrocks/table": "latest",
+		"@itrocks/ux-core": "latest",
+		"@itrocks/xtarget": "latest"
+	},
+	"description": "Generic action-based object list navigation in HTML and JSON",
+	"devDependencies": {
+		"@itrocks/prepare-module": "latest",
+		"@types/node": "^22.9",
+		"sass": "^1.83",
+		"typescript": "~5.6"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"exports": "./cjs/list.js",
+	"homepage": "https://it.rocks",
+	"files": [
+		"LICENSE",
+		"README.md",
+		"cjs/*",
+		"*.css",
+		"*.d.ts",
+		"*.js",
+		"!*.map"
+	],
+	"keywords": [
+		"API",
+		"backend",
+		"browse",
+		"component",
+		"display",
+		"filter",
+		"interactive",
+		"json",
+		"list",
+		"it.rocks",
+		"output",
+		"responsive",
+		"search",
+		"select",
+		"selection",
+		"UI",
+		"UX"
+	],
+	"license": "ISC",
+	"name": "@itrocks/list",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/itrocks-ts/list.git"
+	},
+	"scripts": {
+		"build": "npm run build:cjs && npm run build:css && npm run build:front",
+		"build:cjs": "tsc -p tsconfig.cjs.json && cp src/*.html cjs/",
+		"build:css": "sass --no-source-map src/list.scss:list.css",
+		"build:front": "tsc -p esm/tsconfig.json && npm run prepare",
+		"prepare": "prepare-module esm"
+	},
+	"types": "./cjs/list.d.ts",
+	"version": "0.0.1"
+}
