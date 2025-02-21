@@ -68,5 +68,5 @@
 		"prepare": "prepare-module esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.0.1"
+	"version": "0.0.2"
 }
