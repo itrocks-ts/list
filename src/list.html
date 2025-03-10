@@ -13,12 +13,15 @@
 <main>
 <!--BEGIN-->
 
+	<!--#main-->
 	<article data-action="list" data-class="{type.name}" data-route="{type.@route}">
 		<header>
 			<h2>{type.@output.ucFirst} list</h2>
 			<section class="summary">{objects.length} elements</section>
 			<ul class="general actions">
-				<li class="new"><a href="app://(type.@route)/new" target="main">New</a></li>
+				<!--generalActions-->
+				<li class="{action}">{{template}}</li>
+				<!--end-->
 			</ul>
 		</header>
 		<form action="app://(type.@route)" autocomplete="off" method="post" target="main">
@@ -44,13 +47,14 @@
 			</table>
 			<footer>
 				<ul class="selection actions">
-					<li class="delete">
-						<input formaction="app://(type.@route)/delete" formtarget="#notification" type="submit" value="Delete">
-					</li>
+					<!--selectionActions-->
+					<li class="{action}">{{template}}</li>
+					<!--end-->
 				</ul>
 			</footer>
 		</form>
 	</article>
+	<!--#end-->
 
 <!--END-->
 </main>
