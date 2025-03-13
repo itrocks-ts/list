@@ -4,14 +4,9 @@
 		"email": "baptiste@pillot.fr"
 	},
 	"dependencies": {
-		"@itrocks/action": "latest",
-		"@itrocks/action-bar": "latest",
-		"@itrocks/action-request": "latest",
+		"@itrocks/action-pack": "latest",
 		"@itrocks/build": "latest",
-		"@itrocks/route": "latest",
-		"@itrocks/storage": "latest",
 		"@itrocks/table": "latest",
-		"@itrocks/ux-core": "latest",
 		"@itrocks/xtarget": "latest"
 	},
 	"description": "Generic action-based object list navigation in HTML and JSON",
@@ -69,5 +64,5 @@
 		"prepare": "prepare-module esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.0.4"
+	"version": "0.0.5"
 }
