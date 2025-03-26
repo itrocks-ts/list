@@ -22,13 +22,13 @@
 	"exports": "./cjs/list.js",
 	"homepage": "https://it.rocks",
 	"files": [
+		"config.yaml",
 		"LICENSE",
 		"README.md",
 		"cjs/*",
 		"*.css",
 		"*.d.ts",
 		"*.js",
-		"routes.json",
 		"!*.map"
 	],
 	"keywords": [
@@ -64,5 +64,5 @@
 		"prepare": "prepare-module esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.0.7"
+	"version": "0.0.8"
 }

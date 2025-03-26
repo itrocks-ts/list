@@ -1,0 +1,2 @@
+routes:
+  /list: '@itrocks/list'
