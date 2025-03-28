@@ -60,9 +60,8 @@
 		"build": "npm run build:cjs && npm run build:css && npm run build:front",
 		"build:cjs": "tsc -p tsconfig.cjs.json && cp src/*.html cjs/",
 		"build:css": "sass --no-source-map src/list.scss:list.css",
-		"build:front": "tsc -p esm/tsconfig.json && npm run prepare",
-		"prepare": "prepare-module esm"
+		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.0.8"
+	"version": "0.0.9"
 }
