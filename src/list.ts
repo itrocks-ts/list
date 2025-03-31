@@ -9,10 +9,10 @@ import { dataSource }  from '@itrocks/storage'
 
 @Need('Store', 'new')
 @Route('/list')
-export class List extends Action
+export class List<T extends object = object> extends Action<T>
 {
 
-	async html(request: Request)
+	async html(request: Request<T>)
 	{
 		const type    = request.type
 		const objects = await dataSource().search(type)
@@ -32,7 +32,7 @@ export class List extends Action
 		)
 	}
 
-	async json(request: Request)
+	async json(request: Request<T>)
 	{
 		const objects = await dataSource().search(request.type)
 		return this.jsonResponse(objects)
