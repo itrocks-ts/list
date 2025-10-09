@@ -6,6 +6,7 @@ import { Need }        from '@itrocks/action'
 import { Route }       from '@itrocks/route'
 import { routeOf }     from '@itrocks/route'
 import { dataSource }  from '@itrocks/storage'
+import { Sort }        from '@itrocks/storage'
 
 @Need('Store', 'new')
 @Route('/list')
@@ -15,7 +16,7 @@ export class List<T extends object = object> extends Action<T>
 	async html(request: Request<T>)
 	{
 		const type    = request.type
-		const objects = await dataSource().search(type)
+		const objects = await dataSource().readAll(type, Sort)
 
 		const generalActions:   ActionEntry[] = []
 		const selectionActions: ActionEntry[] = []
