@@ -6,6 +6,7 @@ import { Need }        from '@itrocks/action'
 import { Route }       from '@itrocks/route'
 import { routeOf }     from '@itrocks/route'
 import { dataSource }  from '@itrocks/storage'
+import { Limit }       from '@itrocks/storage'
 import { Sort }        from '@itrocks/storage'
 
 @Need('Store', 'new')
@@ -13,10 +14,16 @@ import { Sort }        from '@itrocks/storage'
 export class List<T extends object = object> extends Action<T>
 {
 
+	lineHeight = 30
+
 	async html(request: Request<T>)
 	{
+		const header  = request.request.headers['xhr-info']
+		const xhrInfo = header ? JSON.parse(header) : {}
+		const limit   = Math.ceil((xhrInfo.targetHeight ?? 1000) / this.lineHeight)
 		const type    = request.type
-		const objects = await dataSource().readAll(type, Sort)
+		const count   = await dataSource().count(type)
+		const objects = await dataSource().readAll(type, [new Limit(limit, +request.request.data.offset), Sort])
 
 		const generalActions:   ActionEntry[] = []
 		const selectionActions: ActionEntry[] = []
@@ -27,7 +34,7 @@ export class List<T extends object = object> extends Action<T>
 		}
 
 		return this.htmlTemplateResponse(
-			{ generalActions, objects, selectionActions, type },
+			{ count, generalActions, objects, selectionActions, type },
 			request,
 			__dirname + '/list.html'
 		)

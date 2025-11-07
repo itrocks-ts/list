@@ -1,5 +1,6 @@
 import { build }                        from '../../build/build.js'
 import { xTargetCall }                  from '../../xtarget/xtarget.js'
+import { TableFeed }                    from '../../table/feed.js'
 import { TableFreeze }                  from '../../table/freeze.js'
 import { TableFreezeInheritBackground } from '../../table/freeze/inherit-background.js'
 import { TableFreezeInheritBorder }     from '../../table/freeze/inherit-border.js'
@@ -8,7 +9,9 @@ import { tableByElement }               from '../../table/table.js'
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	element => {
-		tableByElement(element, { plugins: [ TableFreeze, TableFreezeInheritBackground, TableFreezeInheritBorder ] })
+		tableByElement(element, {
+			plugins: [ TableFeed, TableFreeze, TableFreezeInheritBackground, TableFreezeInheritBorder ]
+		})
 		element.querySelector(':scope > tbody')?.addEventListener('click', async event =>
 		{
 			const td = event.target
