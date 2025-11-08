@@ -20,14 +20,27 @@ export class List<T extends object = object> extends Action<T>
 	{
 		const header  = request.request.headers['xhr-info']
 		const xhrInfo = header ? JSON.parse(header) : {}
-		const limit   = Math.ceil((xhrInfo.targetHeight ?? 1000) / this.lineHeight)
+		const limit   = xhrInfo.targetHeight
+			? Math.ceil(xhrInfo.targetHeight / this.lineHeight)
+			: +(request.request.headers['xhr-visible-rows'] ?? 50);
+		const offset  = request.request.data.offset
+
 		const type    = request.type
-		const count   = await dataSource().count(type)
-		const objects = await dataSource().readAll(type, [new Limit(limit, +request.request.data.offset), Sort])
+		const objects = await dataSource().readAll(type, [new Limit(limit, +offset), Sort])
+
+		if (offset !== undefined) {
+			return this.htmlTemplateResponse(
+				{ objects, type },
+				request,
+				__dirname + '/feed.html'
+			)
+		}
+
+		const count = await dataSource().count(type);
+		const route = routeOf(this)
 
 		const generalActions:   ActionEntry[] = []
 		const selectionActions: ActionEntry[] = []
-		const route = routeOf(this)
 		for (const action of getActions(type, route.slice(route.lastIndexOf('/') + 1))) {
 			const actions = (action.need === 'object') ? selectionActions : generalActions
 			actions.push(action)
