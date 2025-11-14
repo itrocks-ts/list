@@ -16,69 +16,91 @@ main > article[data-action="list"] {
 		grid-template-areas: "table" "footer";
 		grid-template-rows: 1fr min-content;
 
-		> table {
-			border-collapse: collapse;
-			display: block;
-			grid-area: table;
-			margin-bottom: -1px;
-			overflow-y: auto;
-
-			tr {
-				> td, > th {
-					border-bottom: 1px solid #d8d8d8;
-					border-spacing: 0;
-					padding: .6em;
-
-					&:last-child {
-						border-right: 1px solid #d8d8d8;
-					}
-
-					&:not(:first-child) {
-						cursor: pointer;
-					}
-				}
-			}
-
-			> thead {
-
-				> tr > * {
-					background: #f8f8f8;
-				}
-
-				> .properties > .select > input[name=select] {
-					display: none;
-				}
-			}
-
-			> tbody > tr {
-
-				&:nth-child(even) > * {
-					background: #f8f8f8;
-				}
-
-				&:nth-child(odd) > * {
-					background: white;
-				}
-
-				> td > ul {
-					display: block;
-					margin: 0;
-					padding: 0;
-
-					> li {
-						display: inline-block;
-
-						&:not(:first-child):before {
-							content: ', ';
-						}
-					}
-				}
-			}
-		}
-
 		> footer {
 			grid-area: footer;
 			position: relative;
+		}
+
+		> table.objects > tbody > tr > :not(:first-child) {
+			cursor: pointer;
+		}
+	}
+}
+
+table.objects {
+	border-collapse: collapse;
+	display: block;
+	grid-area: table;
+	margin-bottom: -1px;
+	overflow-y: auto;
+
+	th {
+		background: #f8f8f8;
+	}
+
+	tr {
+
+		td, th {
+			border-bottom: 1px solid #d8d8d8;
+			border-spacing: 0;
+			padding: .6em;
+
+			&:last-child {
+				border-right: 1px solid #d8d8d8;
+			}
+		}
+
+		&.properties > .select > input[name=select] {
+			display: none;
+		}
+	}
+
+	> tbody > tr {
+
+		> td > ul {
+			display: block;
+			margin: 0;
+			padding: 0;
+
+			> li {
+				display: inline-block;
+
+				&:not(:first-child):before {
+					content: ', ';
+				}
+			}
+		}
+	}
+
+	> tbody:first-child > tr {
+
+		&:nth-child(even) > td {
+			background: white;
+		}
+
+		&:nth-child(odd) > td {
+			background: #f8f8f8;
+		}
+	}
+
+	> thead + tbody > tr {
+
+		&:nth-child(even) > td {
+			background: #f8f8f8;
+		}
+
+		&:nth-child(odd) > td {
+			background: white;
+		}
+	}
+}
+
+:not(article, article > form) > table.objects {
+	td, th {
+		border-top: 1px solid #d8d8d8;
+
+		&:first-child {
+			border-left: 1px solid #d8d8d8;
 		}
 	}
 }
