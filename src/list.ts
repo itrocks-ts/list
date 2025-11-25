@@ -22,7 +22,7 @@ export class List<T extends object = object> extends Action<T>
 		const xhrInfo = header ? JSON.parse(header) : {}
 		const limit   = xhrInfo.targetHeight
 			? Math.ceil(xhrInfo.targetHeight / this.lineHeight)
-			: +(request.request.headers['xhr-visible-rows'] ?? 50);
+			: (xhrInfo.visibleRows ?? 50)
 		const offset  = request.request.data.offset
 
 		const type    = request.type
@@ -36,7 +36,7 @@ export class List<T extends object = object> extends Action<T>
 			)
 		}
 
-		const count = await dataSource().count(type);
+		const count = await dataSource().count(type)
 		const route = routeOf(this)
 
 		const generalActions:   ActionEntry[] = []
