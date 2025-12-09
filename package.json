@@ -12,9 +12,9 @@
 	"description": "Generic action-based object list navigation in HTML and JSON",
 	"devDependencies": {
 		"@itrocks/prepare-module": "latest",
-		"@types/node": "^22.9",
-		"sass": "^1.83",
-		"typescript": "~5.8"
+		"@types/node": "^24.10",
+		"sass": "^1.95",
+		"typescript": "~5.9"
 	},
 	"engines": {
 		"node": ">=18"
@@ -63,5 +63,5 @@
 		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.0.20"
+	"version": "0.0.21"
 }
