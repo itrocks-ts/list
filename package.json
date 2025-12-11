@@ -32,12 +32,14 @@
 		"!*.map"
 	],
 	"keywords": [
+		"action",
 		"API",
 		"backend",
 		"browse",
 		"component",
 		"display",
 		"filter",
+		"html",
 		"interactive",
 		"json",
 		"list",
@@ -47,6 +49,8 @@
 		"search",
 		"select",
 		"selection",
+		"standard",
+		"view",
 		"UI",
 		"UX"
 	],
@@ -63,5 +67,5 @@
 		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.0.21"
+	"version": "0.0.22"
 }
