@@ -7,18 +7,17 @@ import { TableLink }                    from '../../table/link.js'
 import { tableByElement }               from '../../table/table.js'
 import { xTargetCall }                  from '../../xtarget/xtarget.js'
 
-const tableLink = new TableLink({
-	call: url => xTargetCall(url, 'main'),
-	href: 'action',
-	id:   (element: Element) => {
-		const input = element.closest('tr')?.querySelector<HTMLInputElement>(':scope > th.select > input[name=id]')
-		if (input) return { element: input as Element, value: input.value }
-	}
-})
-
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	element => {
+		const tableLink = new TableLink({
+			call: url => xTargetCall(url, 'main'),
+			href: 'action',
+			id:   (element: Element) => {
+				const input = element.closest('tr')?.querySelector<HTMLInputElement>(':scope > th.select > input[name=id]')
+				if (input) return { element: input as Element, value: input.value }
+			}
+		})
 		tableByElement(element, {
 			plugins: [TableFeed, TableFreeze, TableFreezeInheritBackground, TableFreezeInheritBorder, tableLink]
 		})
