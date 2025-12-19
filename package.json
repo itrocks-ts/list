@@ -67,5 +67,5 @@
 		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.1.1"
+	"version": "0.1.2"
 }
