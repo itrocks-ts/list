@@ -6,34 +6,26 @@ import { Need }        from '@itrocks/action'
 import { Route }       from '@itrocks/route'
 import { routeOf }     from '@itrocks/route'
 import { dataSource }  from '@itrocks/storage'
-import { Limit }       from '@itrocks/storage'
 import { Sort }        from '@itrocks/storage'
+import { Feed }        from './feed'
 
 @Need('Store', 'new')
 @Route('/list')
 export class List<T extends object = object> extends Action<T>
 {
 
-	lineHeight = 30
+	feed = new Feed
 
 	async html(request: Request<T>)
 	{
-		const header  = request.request.headers['xhr-info']
-		const xhrInfo = header ? JSON.parse(header) : {}
-		const limit   = xhrInfo.targetHeight
-			? Math.ceil(xhrInfo.targetHeight / this.lineHeight)
-			: (xhrInfo.visibleRows ?? 50)
-		const offset  = request.request.data.offset
+		const feed = this.feed
+		feed.getParams(request.request)
 
 		const type    = request.type
-		const objects = await dataSource().readAll(type, [new Limit(limit, +offset), Sort])
+		const objects = await dataSource().readAll(type, feed.readOptions([Sort]))
 
-		if (offset !== undefined) {
-			return this.htmlTemplateResponse(
-				{ objects, type },
-				request,
-				__dirname + '/feed.html'
-			)
+		if (feed.offset) {
+			return this.htmlTemplateResponse({ objects, type }, request, feed.template)
 		}
 
 		const count = await dataSource().count(type)
