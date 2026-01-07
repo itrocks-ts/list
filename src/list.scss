@@ -36,6 +36,23 @@ table.objects {
 
 	th {
 		background: #f8f8f8;
+
+		&[data-sort] {
+			padding-right: calc(.6em + 16px);
+			&::after {
+				content: '';
+				height: 24px;
+				mask: url('sort.svg') right center / 24px 24px no-repeat;
+				position: absolute;
+				right: 0;
+				top: calc(50% - 12px);
+				width: 24px;
+			}
+			&[data-reverse]::after { transform: scaleY(-1); }
+			&[data-sort='1']::after { background-color: #444; }
+			&[data-sort='2']::after { background-color: #888; }
+			&[data-sort='3']::after { background-color: #ccc; }
+		}
 	}
 
 	tr {

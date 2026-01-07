@@ -30,6 +30,7 @@
 		"LICENSE",
 		"README.md",
 		"cjs/*",
+		"/*.svg",
 		"*.css",
 		"*.d.ts",
 		"*.js",
@@ -67,9 +68,9 @@
 	"scripts": {
 		"build": "npm run build:cjs && npm run build:css && npm run build:front",
 		"build:cjs": "tsc -p tsconfig.cjs.json && cp src/*.html cjs/",
-		"build:css": "sass --no-source-map src/list.scss:list.css",
+		"build:css": "sass --no-source-map src/list.scss:list.css && cp src/*.svg ./",
 		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.1.4"
+	"version": "0.2.0"
 }
