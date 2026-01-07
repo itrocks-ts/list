@@ -6,6 +6,10 @@
 	"dependencies": {
 		"@itrocks/action-pack": "latest",
 		"@itrocks/build": "latest",
+		"@itrocks/class-type": "latest",
+		"@itrocks/list-properties": "latest",
+		"@itrocks/reflect": "latest",
+		"@itrocks/request-response": "latest",
 		"@itrocks/table": "latest",
 		"@itrocks/xtarget": "latest"
 	},
@@ -67,5 +71,5 @@
 		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
 	},
 	"types": "./cjs/list.d.ts",
-	"version": "0.1.3"
+	"version": "0.1.4"
 }

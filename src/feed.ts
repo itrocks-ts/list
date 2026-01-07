@@ -1,6 +1,6 @@
+import { Request } from '@itrocks/request-response'
 import { Limit }   from '@itrocks/storage'
 import { Option }  from '@itrocks/storage'
-import { Request } from '@itrocks/request-response'
 
 export class Feed
 {
@@ -24,7 +24,7 @@ export class Feed
 		this.offset = +request.data.offset
 	}
 
-	readOptions(options: Array<Option>)
+	readOptions(options = new Array<Option>)
 	{
 		options.push(new Limit(this.limit, this.offset))
 		return options

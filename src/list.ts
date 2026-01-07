@@ -1,28 +1,43 @@
 import { Action }      from '@itrocks/action'
 import { ActionEntry } from '@itrocks/action'
 import { getActions }  from '@itrocks/action'
-import { Request }     from '@itrocks/action-request'
 import { Need }        from '@itrocks/action'
+import { Request }     from '@itrocks/action-request'
 import { Route }       from '@itrocks/route'
 import { routeOf }     from '@itrocks/route'
 import { dataSource }  from '@itrocks/storage'
-import { Sort }        from '@itrocks/storage'
+import { Columns }     from './columns'
 import { Feed }        from './feed'
+import { Filter }      from './filter'
+import { Sort }        from './sort'
 
 @Need('Store', 'new')
 @Route('/list')
 export class List<T extends object = object> extends Action<T>
 {
 
-	feed = new Feed
+	columns = new Columns
+	feed    = new Feed
+	filter  = new Filter
+	sort    = new Sort
 
 	async html(request: Request<T>)
 	{
-		const feed = this.feed
-		feed.getParams(request.request)
-
+		const columns = this.columns
+		const feed    = this.feed
+		const filter  = this.filter
+		const sort    = this.sort
 		const type    = request.type
-		const objects = await dataSource().readAll(type, feed.readOptions([Sort]))
+		columns.getParams(request.request, type)
+		feed.getParams(request.request)
+		filter.getParams(request.request)
+		sort.getParams(request.request, type, columns)
+
+		const objects = await dataSource().search(
+			type,
+			filter.searchObject(type),
+			feed.readOptions(filter.readOptions(sort.readOptions()))
+		)
 
 		if (feed.offset) {
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)
@@ -39,7 +54,7 @@ export class List<T extends object = object> extends Action<T>
 		}
 
 		return this.htmlTemplateResponse(
-			{ count, generalActions, objects, selectionActions, type },
+			{ columns, count, generalActions, objects, selectionActions, type },
 			request,
 			__dirname + '/list.html'
 		)
