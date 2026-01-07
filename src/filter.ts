@@ -1,8 +1,9 @@
-import { Type }    from '@itrocks/class-type'
-import { Request } from '@itrocks/request-response'
-import { Option }  from '@itrocks/storage'
+import { Type }      from '@itrocks/class-type'
+import { Request }   from '@itrocks/request-response'
+import { Option }    from '@itrocks/storage'
+import { Parameter } from './parameter'
 
-export class Filter
+export class Filter extends Parameter
 {
 
 	getParams(_request: Request)

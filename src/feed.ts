@@ -1,8 +1,9 @@
-import { Request } from '@itrocks/request-response'
-import { Limit }   from '@itrocks/storage'
-import { Option }  from '@itrocks/storage'
+import { Request }   from '@itrocks/request-response'
+import { Limit }     from '@itrocks/storage'
+import { Option }    from '@itrocks/storage'
+import { Parameter } from './parameter'
 
-export class Feed
+export class Feed extends Parameter
 {
 
 	static DEFAULT_LIMIT       = 50
