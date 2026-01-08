@@ -3,6 +3,7 @@ import { Request }            from '@itrocks/request-response'
 import { Reverse }            from '@itrocks/sort'
 import { sortOf }             from '@itrocks/sort'
 import { Option }             from '@itrocks/storage'
+import { PropertyPath }       from '@itrocks/storage'
 import { Sort as SortOption } from '@itrocks/storage'
 import { Columns }            from './columns'
 import { Parameter }          from './parameter'
@@ -78,13 +79,23 @@ export class Sort<T extends object> extends Parameter
 
 	readOptions(options = new Array<Option>)
 	{
-		options.push(SortOption)
+		options.push(this.sortOption())
 		return options
 	}
 
 	serialize()
 	{
 		return this.sorted
+	}
+
+	sortOption(): SortOption | Type<SortOption>
+	{
+		if (!this.sorted) return SortOption
+		const properties = new Array<PropertyPath>
+		for (const [propertyName, reverse] of Object.entries(this.sorted)) {
+			properties.push(reverse ? new Reverse(propertyName) : propertyName)
+		}
+		return new SortOption(properties)
 	}
 
 	unserialize(data: Serialized)
