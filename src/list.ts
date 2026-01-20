@@ -20,7 +20,7 @@ export class List<T extends object = object> extends Action<T>
 
 	columns = new Columns
 	feed    = new Feed
-	filter  = new Filter
+	filter  = new Filter(this.columns)
 	sort    = new Sort(this.columns)
 
 	async html(request: Request<T>)
@@ -61,7 +61,7 @@ export class List<T extends object = object> extends Action<T>
 		}
 
 		return this.htmlTemplateResponse(
-			{ columns, count, generalActions, objects, selectionActions, type },
+			{ columns, count, generalActions, objects, search: filter.search, selectionActions, type },
 			request,
 			__dirname + '/list.html'
 		)

@@ -24,13 +24,19 @@
 				<!--end-->
 			</ul>
 		</header>
-		<form action="app://(type.@route)" autocomplete="off" method="post" target="main">
-			<table class="objects">
-			<thead>
+		<form action="app://(type.@route)/list" autocomplete="off" method="post" target="main">
+			<table class="objects" data-link="{type.@route}">
+				<thead>
 					<tr class="properties">
 						<th class="select"><input name="select" type="checkbox" value="all"></th>
 						<!--columns-->
 						<th data-property="{name}" data-reverse="{?reverse}" data-sort="{?sort}">{@display}</th>
+						<!--end-->
+					</tr>
+					<tr class="search">
+						<th><input name="reset" title="reset search filters" type="submit" value="reset"></th>
+						<!--columns-->
+						<th><input name="search.{name.toField}" value="{?.search.{name.toField}}"></th>
 						<!--end-->
 					</tr>
 				</thead>

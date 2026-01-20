@@ -12,7 +12,6 @@ build<HTMLTableElement>(
 	table => {
 		const tableLink = new TableLink({
 			call: url => xTargetCall(url, 'main'),
-			href: 'action',
 			id:   (element: Element) => {
 				const input = element.closest('tr')?.querySelector<HTMLInputElement>(':scope > th.select > input[name=id]')
 				if (input) return { element: input as Element, value: input.value }
