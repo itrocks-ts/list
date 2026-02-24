@@ -40,11 +40,8 @@ export class List<T extends object = object> extends Action<T>
 
 		save(this, request.request, type)
 
-		const objects = await dataSource().search(
-			type,
-			filter.searchObject(type),
-			feed.readOptions(filter.readOptions(sort.readOptions()))
-		)
+		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
+		const objects = await dataSource().search(type, filter.searchObject(type), options)
 
 		if (feed.offset) {
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)

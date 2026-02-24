@@ -55,10 +55,11 @@ export class Sort<T extends object> extends Parameter
 			const reverse = 'reverse' in request.data
 			const sort    = request.data.sort
 			const index   = sortProperties.indexOf(sort)
-			if (index < 0) return
-			sortProperties.splice(index, 1)
+			if (index >= 0) {
+				sortProperties.splice(index, 1)
+				sortReverse.splice(index, 1)
+			}
 			sortProperties.unshift(sort)
-			sortReverse.splice(index, 1)
 			sortReverse.unshift(reverse)
 			this.sorted = undefined
 		}
@@ -72,8 +73,8 @@ export class Sort<T extends object> extends Parameter
 
 		for (const column of this.columns) {
 			const sortIndex = sortProperties.indexOf(column.name)
-			column.reverse  = sortReverse[sortIndex]
-			column.sort     = (sortIndex > -1) ? (sortIndex + 1) : undefined
+			column.reverse  = !!sortReverse[sortIndex]
+			column.sort     = (sortIndex + 1) || undefined
 		}
 	}
 
