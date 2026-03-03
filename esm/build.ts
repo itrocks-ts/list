@@ -22,9 +22,9 @@ build<HTMLTableElement>(
 		})
 		table.addEventListener('click', event => {
 			const element = event.target
-			if (!(element instanceof HTMLElement)) return
+			if ((element instanceof HTMLInputElement) || !(element instanceof HTMLElement)) return
 			const cell = element.closest('table, th')
-			if (!(cell instanceof HTMLTableCellElement) || !cell.classList.contains('select')) return
+			if (!((cell instanceof HTMLTableCellElement) && cell.classList.contains('select'))) return
 			const input = cell.querySelector<HTMLInputElement>('input[type=checkbox]')
 			if (!input) return
 			input.click()
