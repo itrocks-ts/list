@@ -1,4 +1,3 @@
-import { KeyOf }            from '@itrocks/class-type'
 import { Type }             from '@itrocks/class-type'
 import { ListReflectClass } from '@itrocks/list-properties'
 import { ReflectProperty }  from '@itrocks/reflect'
@@ -52,7 +51,7 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 		return this.properties.map(property => property.name)
 	}
 
-	unserialize(data: KeyOf<T>[], type: Type<T>)
+	unserialize(data: (keyof T)[], type: Type<T>)
 	{
 		this.properties = data.map(property => new ReflectProperty(type, property))
 	}

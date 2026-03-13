@@ -72,7 +72,7 @@ export class Sort<T extends object> extends Parameter
 		}
 
 		for (const column of this.columns) {
-			const sortIndex = sortProperties.indexOf(column.name)
+			const sortIndex = sortProperties.indexOf(column.name.toString())
 			column.reverse  = !!sortReverse[sortIndex]
 			column.sort     = (sortIndex + 1) || undefined
 		}
