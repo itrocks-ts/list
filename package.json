@@ -15,13 +15,12 @@
 	},
 	"description": "Generic action-based object list navigation in HTML and JSON",
 	"devDependencies": {
-		"@itrocks/prepare-module": "latest",
 		"@types/node": "^24.10",
 		"sass": "^1.95",
-		"typescript": "~5.9"
+		"typescript": "^6.0"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=24"
 	},
 	"exports": "./cjs/list.js",
 	"homepage": "https://it.rocks",
@@ -29,12 +28,11 @@
 		"config.yaml",
 		"LICENSE",
 		"README.md",
-		"cjs/*",
+		"cjs",
 		"/*.svg",
 		"*.css",
 		"*.d.ts",
-		"*.js",
-		"!*.map"
+		"*.js"
 	],
 	"keywords": [
 		"action",
@@ -67,10 +65,9 @@
 	},
 	"scripts": {
 		"build": "npm run build:cjs && npm run build:css && npm run build:front",
-		"build:cjs": "tsc -p tsconfig.cjs.json && cp src/*.html cjs/",
+		"build:cjs": "tsc && cp src/*.html cjs/",
 		"build:css": "sass --no-source-map src/list.scss:list.css && cp src/*.svg ./",
-		"build:front": "tsc -p esm/tsconfig.json && ../prepare-module/prepare-module.js esm"
+		"build:front": "tsc -p src/front/tsconfig.json"
 	},
-	"types": "./cjs/list.d.ts",
-	"version": "0.3.3"
+	"version": "0.3.4"
 }

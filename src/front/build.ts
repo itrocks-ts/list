@@ -1,11 +1,11 @@
-import { build }                        from '../../build/build.js'
-import { TableFeed }                    from '../../table/feed.js'
-import { TableFreeze }                  from '../../table/freeze.js'
-import { TableFreezeInheritBackground } from '../../table/freeze/inherit-background.js'
-import { TableFreezeInheritBorder }     from '../../table/freeze/inherit-border.js'
-import { TableLink }                    from '../../table/link.js'
-import { tableByElement }               from '../../table/table.js'
-import { xTargetCall }                  from '../../xtarget/xtarget.js'
+import { build }                        from '@itrocks/build/build.js'
+import { TableFeed }                    from '@itrocks/table/feed.js'
+import { TableFreeze }                  from '@itrocks/table/freeze.js'
+import { TableFreezeInheritBackground } from '@itrocks/table/freeze/inherit-background.js'
+import { TableFreezeInheritBorder }     from '@itrocks/table/freeze/inherit-border.js'
+import { TableLink }                    from '@itrocks/table/link.js'
+import { tableByElement }               from '@itrocks/table/table.js'
+import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
 
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',

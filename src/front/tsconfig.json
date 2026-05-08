@@ -1,0 +1,12 @@
+{
+	"compilerOptions": {
+		"module": "esnext",
+		"outDir": "../..",
+		"rootDir": ".",
+		"sourceMap": false,
+		"target": "es2022"
+	},
+	"exclude": [],
+	"extends": "../../tsconfig.json",
+	"include": ["."]
+}
