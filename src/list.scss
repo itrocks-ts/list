@@ -1,7 +1,7 @@
 
 html.column-reorder,
 html.column-reorder * {
-	cursor: ew-resize !important;
+	cursor: grabbing !important;
 }
 
 main > article[data-action="list"] {
