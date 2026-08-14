@@ -1,4 +1,9 @@
 
+html.column-reorder,
+html.column-reorder * {
+	cursor: ew-resize !important;
+}
+
 main > article[data-action="list"] {
 
 	> header {
@@ -44,6 +49,7 @@ table.objects {
 			border-bottom: 1px solid #d8d8d8;
 			border-spacing: 0;
 			padding: .6em;
+			white-space: nowrap;
 
 			&:last-child {
 				border-right: 1px solid #d8d8d8;
@@ -52,6 +58,15 @@ table.objects {
 
 		&.properties > .select > input[name=select] {
 			display: none;
+		}
+	}
+
+	> * > tr > .column-reorder {
+		--column-reorder-tint: inset 0 0 0 100vmax rgb(0 0 0 / 2%);
+		box-shadow: var(--column-reorder-tint);
+
+		input {
+			box-shadow: var(--column-reorder-tint);
 		}
 	}
 
@@ -85,6 +100,7 @@ table.objects {
 	}
 
 	> thead > tr.properties > th {
+		user-select: none;
 
 		&[data-property] {
 			cursor: pointer;
@@ -130,7 +146,7 @@ table.objects {
 
 			&:focus {
 				outline: none;
-				box-shadow: inset 0 0 0 2px Highlight;
+				box-shadow: inset 0 0 0 2px Highlight, var(--column-reorder-tint, 0 0 transparent);
 			}
 		}
 	}

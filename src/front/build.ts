@@ -1,4 +1,6 @@
 import { build }                        from '@itrocks/build/build.js'
+import { TableColumnReorder }           from '@itrocks/table/column-reorder.js'
+import { TableColumnReorderFreeze }     from '@itrocks/table/column-reorder-freeze.js'
 import { TableFeed }                    from '@itrocks/table/feed.js'
 import { TableFreeze }                  from '@itrocks/table/freeze.js'
 import { TableFreezeInheritBackground } from '@itrocks/table/freeze/inherit-background.js'
@@ -18,7 +20,10 @@ build<HTMLTableElement>(
 			}
 		})
 		tableByElement(table, {
-			plugins: [TableFeed, TableFreeze, TableFreezeInheritBackground, TableFreezeInheritBorder, tableLink]
+			plugins: [
+				TableColumnReorder, TableColumnReorderFreeze, TableFeed, TableFreeze, TableFreezeInheritBackground,
+				TableFreezeInheritBorder, tableLink
+			]
 		})
 		table.addEventListener('click', event => {
 			const element = event.target
