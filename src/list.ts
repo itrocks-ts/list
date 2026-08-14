@@ -34,6 +34,11 @@ export class List<T extends object = object> extends Action<T>
 		load(this, request.request, type)
 
 		columns.getParams(request.request, type)
+		if (request.request.data.columns) {
+			save(this, request.request, type)
+			return this.htmlResponse('', 204)
+		}
+
 		feed.getParams(request.request)
 		filter.getParams(request.request)
 		sort.getParams(request.request, type)
@@ -41,7 +46,10 @@ export class List<T extends object = object> extends Action<T>
 		save(this, request.request, type)
 
 		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
-		const objects = await dataSource().search(type, filter.searchObject(type), options)
+		const objects = (await dataSource().search(type, filter.searchObject(type), options)).map(object => ({
+			id:         object.id,
+			properties: columns.propertiesOf(object)
+		}))
 
 		if (feed.offset) {
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)

@@ -69,5 +69,5 @@
 		"build:css": "sass --no-source-map src/list.scss:list.css && cp src/*.svg ./",
 		"build:front": "tsc -p src/front/tsconfig.json"
 	},
-	"version": "0.4.1"
+	"version": "0.5.0"
 }

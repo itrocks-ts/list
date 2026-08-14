@@ -12,6 +12,15 @@ import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	table => {
+		const tableColumnReorder = new TableColumnReorder({ onReorder: () => {
+			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(':scope > th[data-property]')
+			const form    = table.closest('form')
+			if (!columns?.length || !form) return
+			const properties = Array.from(columns, column => encodeURIComponent(column.dataset.property ?? ''))
+			fetch(form.action + '?columns=' + properties.join(','), { keepalive: true }).catch(
+				error => console.error('Column order save error:', error)
+			)
+		}})
 		const tableLink = new TableLink({
 			call: url => xTargetCall(url, 'main'),
 			id:   (element: Element) => {
@@ -21,7 +30,7 @@ build<HTMLTableElement>(
 		})
 		tableByElement(table, {
 			plugins: [
-				TableColumnReorder, TableColumnReorderFreeze, TableFeed, TableFreeze, TableFreezeInheritBackground,
+				tableColumnReorder, TableColumnReorderFreeze, TableFeed, TableFreeze, TableFreezeInheritBackground,
 				TableFreezeInheritBorder, tableLink
 			]
 		})

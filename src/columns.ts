@@ -15,8 +15,28 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 		return this.properties[Symbol.iterator]()
 	}
 
-	getParams(_request: Request, type: Type<T>)
+	getParams(request: Request, type: Type<T>)
 	{
+		const data = request.data.columns
+		if (data !== undefined) {
+			const propertyNames = (Array.isArray(data) ? data : [data]).flatMap(
+				property => (typeof property === 'string') ? property.split(',') : property
+			)
+			if (propertyNames.every((property): property is string => typeof property === 'string')) {
+				const reflected  = new ListReflectClass(type).listProperties()
+				const reordered  = propertyNames.map(
+					propertyName => reflected.find(property => property.name.toString() === propertyName)
+				)
+				const properties = reordered.filter((property): property is ReflectProperty<T> => !!property)
+				if (
+					(propertyNames.length === reflected.length)
+					&& (properties.length === reflected.length)
+					&& (new Set(properties).size === reflected.length)
+				) {
+					this.properties = properties
+				}
+			}
+		}
 		if (!this.length) {
 			this.properties = new ListReflectClass(type).listProperties()
 		}
@@ -30,6 +50,11 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 	map(callback: (value: ReflectProperty<T>) => any)
 	{
 		return this.properties.map(callback)
+	}
+
+	propertiesOf(object: T)
+	{
+		return this.properties.map(property => new ReflectProperty(object, property.name))
 	}
 
 	readOptions(options = new Array<Option>)
