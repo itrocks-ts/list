@@ -17,7 +17,7 @@
 	"devDependencies": {
 		"@types/node": "^24.10",
 		"sass": "^1.95",
-		"typescript": "^6.0"
+		"typescript": "^7.0"
 	},
 	"engines": {
 		"node": ">=24"
@@ -69,5 +69,5 @@
 		"build:css": "sass --no-source-map src/list.scss:list.css && cp src/*.svg ./",
 		"build:front": "tsc -p src/front/tsconfig.json"
 	},
-	"version": "0.3.4"
+	"version": "0.3.5"
 }
