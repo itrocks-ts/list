@@ -65,9 +65,9 @@
 	},
 	"scripts": {
 		"build": "npm run build:cjs && npm run build:css && npm run build:front",
-		"build:cjs": "tsc && cp src/*.html cjs/",
-		"build:css": "sass --no-source-map src/list.scss:list.css && cp src/*.svg ./",
+		"build:cjs": "tsc && node -e \"const fs=require('node:fs'),path=require('node:path');for(const file of fs.readdirSync('src'))if(file.endsWith('.html'))fs.copyFileSync(path.join('src',file),path.join('cjs',file))\"",
+		"build:css": "sass --no-source-map src/list.scss:list.css && node -e \"const fs=require('node:fs'),path=require('node:path');for(const file of fs.readdirSync('src'))if(file.endsWith('.svg'))fs.copyFileSync(path.join('src',file),file)\"",
 		"build:front": "tsc -p src/front/tsconfig.json"
 	},
-	"version": "0.5.0"
+	"version": "0.6.0"
 }
