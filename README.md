@@ -72,7 +72,7 @@ adds list‑oriented behaviors.
 
 #### Methods
 
-##### `html(request: Request<T>): Promise<HtmlResponse>`
+##### `html(request: Request<T>, scope?: SearchType<T>): Promise<HtmlResponse>`
 
 Builds an HTML response for the list view.
 
@@ -95,15 +95,14 @@ fastify.get('/users', async (req, reply) => {
 })
 ```
 
-##### `json(request: Request<T>): Promise<JsonResponse>`
+##### `json(request: Request<T>, scope?: SearchType<T>): Promise<JsonResponse>`
 
-Builds a JSON representation of the same list data.
+Builds a JSON response from the objects returned by the configured data source.
 
 The returned
 [`JsonResponse`](https://github.com/itrocks-ts/core-responses#jsonresponse)
-typically contains the current page of results, meta‑data (page, page size,
-total count) and any additional information configured via your
-`Action`/`List` setup.
+contains those objects. Unlike `html()`, this method does not process the HTML list's
+filters, sorting, pagination, templates or count.
 
 This is useful for API‑only endpoints, asynchronous front‑end components or
 infinite‑scroll lists.
@@ -118,6 +117,18 @@ fastify.get('/api/users', async (req, reply) => {
 		.send(response.body)
 })
 ```
+
+### Mandatory scopes
+
+Both `html()` and `json()` accept an optional application scope as a `SearchType<T>`. Build
+the scope from trusted application state rather than passing request data through directly.
+
+For `html()`, the scope is merged after user filters, so it takes precedence if both define
+the same property. The resulting search is passed to both `dataSource().search()` and
+`dataSource().count()` without replacing list loading, sorting, pagination, metadata,
+templates or the configured data source.
+
+For `json()`, the scope is passed directly to `dataSource().search()`.
 
 ## Typical use cases
 

@@ -6,6 +6,7 @@ import { Request }     from '@itrocks/action-request'
 import { Route }       from '@itrocks/route'
 import { routeOf }     from '@itrocks/route'
 import { dataSource }  from '@itrocks/storage'
+import { SearchType }  from '@itrocks/storage'
 import { Columns }     from './columns'
 import { Feed }        from './feed'
 import { Filter }      from './filter'
@@ -23,7 +24,7 @@ export class List<T extends object = object> extends Action<T>
 	filter  = new Filter(this.columns)
 	sort    = new Sort(this.columns)
 
-	async html(request: Request<T>)
+	async html(request: Request<T>, scope?: SearchType<T>)
 	{
 		const columns = this.columns
 		const feed    = this.feed
@@ -46,7 +47,8 @@ export class List<T extends object = object> extends Action<T>
 		save(this, request.request, type)
 
 		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
-		const objects = (await dataSource().search(type, filter.searchObject(type), options)).map(object => ({
+		const search  = Object.assign(filter.searchObject(type), scope)
+		const objects = (await dataSource().search(type, search, options)).map(object => ({
 			id:         object.id,
 			properties: columns.propertiesOf(object)
 		}))
@@ -55,7 +57,7 @@ export class List<T extends object = object> extends Action<T>
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)
 		}
 
-		const count = await dataSource().count(type)
+		const count = await dataSource().count(type, search)
 		const route = routeOf(this)
 
 		const generalActions:   ActionEntry[] = []
@@ -72,9 +74,9 @@ export class List<T extends object = object> extends Action<T>
 		)
 	}
 
-	async json(request: Request<T>)
+	async json(request: Request<T>, scope?: SearchType<T>)
 	{
-		const objects = await dataSource().search(request.type)
+		const objects = await dataSource().search(request.type, scope)
 		return this.jsonResponse(objects)
 	}
 
