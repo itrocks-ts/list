@@ -10,6 +10,7 @@
 		"@itrocks/list-properties": "latest",
 		"@itrocks/reflect": "latest",
 		"@itrocks/request-response": "latest",
+		"@itrocks/sort": "latest",
 		"@itrocks/table": "latest",
 		"@itrocks/xtarget": "latest"
 	},
@@ -70,5 +71,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.7.1"
+	"version": "0.8.0"
 }

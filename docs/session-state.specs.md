@@ -47,7 +47,7 @@ After loading the session, `Sort.getParams()` behaves as follows:
 `Sort.serialize()` then stores the ordered object in the session. On the next render, this object is used instead of
 values obtained from storage options or reflection.
 
-## Column display order
+## Column display order and removal
 
 The `TableColumnReorder` plugin moves every cell in a column during a drag. When a drop actually changes its position,
 the `onReorder` callback:
@@ -62,6 +62,16 @@ For example, the request conceptually contains:
 ?columns=name,email,createdAt
 ```
 
+At its original position, the column keeps the gray tint without an icon. At another position, it receives a light
+blue tint and horizontal arrows to the left of the name. Returning to the initial position restores gray and clears
+the arrows.
+
+When the pointer is before the first data column (including over the selection checkboxes), after the last data
+column, or above or below the table, the dragged cells receive a light red tint and a red cross appears to the left of the
+field name. Returning to the data area clears the indicator. Releasing in a removal zone removes the cells from every
+row and any corresponding `col`, then calls `onRemove`, which saves the remaining columns using the same request.
+Escape or `pointercancel` cancels the gesture and restores the initial order without saving.
+
 The server also accepts repeated `columns` parameters for compatibility with the previous format. In both cases,
 `Columns.getParams()` splits comma-separated values.
 
@@ -70,13 +80,14 @@ instances, then returns an empty `204` response before `Feed.getParams()`, `Filt
 any `DataSource` access. The table already reordered by the plugin, feed-loaded rows, and scroll position therefore
 remain unchanged.
 
-The received value is applied only when it is a complete, duplicate-free permutation of the properties returned by
-`ListReflectClass(type).listProperties()`. This validation prevents an incomplete or altered request from hiding or
-inventing a column. Even when the value is invalid, the dedicated request saves the previously loaded state, or the
+The received value is applied only when it contains known, duplicate-free properties from
+`ListReflectClass(type).listProperties()`. A reduced list hides removed columns; `columns=` removes all data columns.
+Unknown properties and duplicates are rejected. Even when the value is invalid, the dedicated request saves the previously loaded state, or the
 default reflected state when none was loaded, and returns `204` without rendering.
 
 When no new order is supplied, the columns restored by `Columns.unserialize()` are retained. Reflection functions are
-used as a fallback only when the session does not contain any columns yet. Finally, `Columns.serialize()` stores the
+used as a fallback only when the session does not contain a column configuration yet. A restored empty configuration
+remains empty. Finally, `Columns.serialize()` stores the
 names in their current order. The drop therefore applies to all subsequent renders of the same list during the current
 session.
 

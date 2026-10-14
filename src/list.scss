@@ -65,6 +65,14 @@ table.objects {
 		--column-reorder-tint: inset 0 0 0 100vmax rgb(0 0 0 / 2%);
 		box-shadow: var(--column-reorder-tint);
 
+		&.moving {
+			--column-reorder-tint: inset 0 0 0 100vmax rgb(38 116 198 / 4%);
+		}
+
+		&.removing {
+			--column-reorder-tint: inset 0 0 0 100vmax rgb(220 35 45 / 4%);
+		}
+
 		input {
 			box-shadow: var(--column-reorder-tint);
 		}
@@ -101,6 +109,34 @@ table.objects {
 
 	> thead > tr.properties > th {
 		user-select: none;
+
+		&.moving, &.removing {
+			z-index: 2;
+		}
+
+		&.moving::before, &.removing::before {
+			content: '';
+			display: inline-block;
+			height: 1em;
+			margin-left: -1.4em;
+			margin-right: .4em;
+			mask-position: center;
+			mask-repeat: no-repeat;
+			mask-size: contain;
+			pointer-events: none;
+			vertical-align: -.22em;
+			width: 1em;
+		}
+
+		&.moving::before {
+			background: #2674c6;
+			mask-image: url('column-move.svg');
+		}
+
+		&.removing::before {
+			background: #d51d2c;
+			mask-image: url('column-remove.svg');
+		}
 
 		&[data-property] {
 			cursor: pointer;

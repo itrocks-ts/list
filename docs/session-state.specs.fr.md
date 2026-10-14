@@ -48,7 +48,7 @@ Après le chargement de session, `Sort.getParams()` procède ainsi :
 `Sort.serialize()` sauvegarde ensuite l'objet ordonné dans la session. Au rendu suivant, cet objet est donc utilisé à
 la place des valeurs issues des options de stockage ou de la réflexion.
 
-## Ordre d'affichage des colonnes
+## Ordre et suppression des colonnes
 
 Le plugin `TableColumnReorder` déplace toutes les cellules de la colonne pendant le drag. Lorsqu'un drop modifie
 réellement sa position, son callback `onReorder` :
@@ -63,6 +63,16 @@ Par exemple, la requête contient conceptuellement :
 ?columns=name,email,createdAt
 ```
 
+À sa position d'origine, la colonne conserve la teinte grise sans icône. À une autre position, elle prend une teinte
+bleue légère et affiche des flèches horizontales à gauche du nom. Revenir à la position initiale rétablit le gris et
+retire les flèches.
+
+Si le pointeur passe avant la première colonne de données (y compris sur les cases à cocher), après la dernière,
+ou au-dessus ou en dessous du tableau, les cellules de la colonne prennent une teinte rouge légère et une croix rouge apparaît
+à gauche du nom. Revenir dans la zone des données retire cet indicateur. Relâcher dans une zone de suppression retire
+les cellules de toutes les lignes et l'éventuel `col`, puis appelle `onRemove`, qui sauvegarde les colonnes restantes
+avec la même requête. Échap ou `pointercancel` annule le geste et restaure l'ordre initial sans sauvegarde.
+
 Le serveur accepte aussi plusieurs paramètres `columns` pour rester compatible avec l'ancien format. Dans les deux
 cas, `Columns.getParams()` découpe les valeurs séparées par des virgules.
 
@@ -71,14 +81,14 @@ restaurés, puis retourne une réponse vide `204`, avant `Feed.getParams()`, `Fi
 tout accès au `DataSource`. La table déjà réordonnée par le plugin, les lignes ajoutées par le feed et la position de
 scroll restent donc intactes.
 
-La valeur reçue n'est appliquée que si elle correspond à une permutation complète, sans doublon, des propriétés
-retournées par `ListReflectClass(type).listProperties()`. Cette validation empêche une requête incomplète ou altérée de
-masquer ou d'inventer une colonne. Même si la valeur est invalide, la requête dédiée sauvegarde l'état précédemment
+La valeur reçue n'est appliquée que si elle contient des propriétés connues, sans doublon, parmi celles retournées par
+`ListReflectClass(type).listProperties()`. Une liste réduite masque les colonnes retirées ; `columns=` retire toutes les
+colonnes de données. Les propriétés inconnues et les doublons sont rejetés. Même si la valeur est invalide, la requête dédiée sauvegarde l'état précédemment
 chargé, ou l'état réfléchi par défaut en son absence, et retourne `204` sans lancer de rendu.
 
 Si aucun nouvel ordre n'est transmis, les colonnes restaurées par `Columns.unserialize()` sont conservées. Les
 fonctions de réflexion ne sont rappelées comme valeur par défaut que lorsque la session ne contient encore aucune
-colonne. Enfin, `Columns.serialize()` sauvegarde les noms dans leur ordre courant. Le drop devient donc effectif pour
+configuration de colonnes. Une configuration vide restaurée reste vide. Enfin, `Columns.serialize()` sauvegarde les noms dans leur ordre courant. Le drop devient donc effectif pour
 tous les rendus suivants de la même liste pendant la session en cours.
 
 Pour rendre les données, chaque objet chargé est associé à des `ReflectProperty` liées à cet objet par

@@ -8,6 +8,8 @@ import { Parameter }        from './parameter'
 export class Columns<T extends object> extends Parameter implements Iterable<ReflectProperty<T>>
 {
 
+	private configured = false
+
 	properties = new Array<ReflectProperty<T>>;
 
 	[Symbol.iterator]()
@@ -20,7 +22,7 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 		const data = request.data.columns
 		if (data !== undefined) {
 			const propertyNames = (Array.isArray(data) ? data : [data]).flatMap(
-				property => (typeof property === 'string') ? property.split(',') : property
+				property => (typeof property === 'string') ? (property ? property.split(',') : []) : property
 			)
 			if (propertyNames.every((property): property is string => typeof property === 'string')) {
 				const reflected  = new ListReflectClass(type).listProperties()
@@ -29,17 +31,18 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 				)
 				const properties = reordered.filter((property): property is ReflectProperty<T> => !!property)
 				if (
-					(propertyNames.length === reflected.length)
-					&& (properties.length === reflected.length)
-					&& (new Set(properties).size === reflected.length)
+					(properties.length === propertyNames.length)
+					&& (new Set(properties).size === propertyNames.length)
 				) {
+					this.configured = true
 					this.properties = properties
 				}
 			}
 		}
-		if (!this.length) {
+		if (!this.configured && !this.length) {
 			this.properties = new ListReflectClass(type).listProperties()
 		}
+		this.configured = true
 	}
 
 	get length()
@@ -78,6 +81,7 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 
 	unserialize(data: (keyof T)[], type: Type<T>)
 	{
+		this.configured = true
 		this.properties = data.map(property => new ReflectProperty(type, property))
 	}
 

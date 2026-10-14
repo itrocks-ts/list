@@ -12,15 +12,20 @@ import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	table => {
-		const tableColumnReorder = new TableColumnReorder({ onReorder: () => {
+		const saveColumns = () => {
 			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(':scope > th[data-property]')
 			const form    = table.closest('form')
-			if (!columns?.length || !form) return
+			if (!columns || !form) return
 			const properties = Array.from(columns, column => encodeURIComponent(column.dataset.property ?? ''))
 			fetch(form.action + '?columns=' + properties.join(','), { keepalive: true }).catch(
-				error => console.error('Column order save error:', error)
+				error => console.error('Columns save error:', error)
 			)
-		}})
+		}
+		const tableColumnReorder = new TableColumnReorder({
+			isReorderable: header => header.dataset.property !== undefined,
+			onRemove:      saveColumns,
+			onReorder:     saveColumns
+		})
 		const tableLink = new TableLink({
 			call: url => xTargetCall(url, 'main'),
 			id:   (element: Element) => {
