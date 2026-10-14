@@ -5,7 +5,8 @@ import { test }          from 'node:test'
 
 const require = createRequire(import.meta.url)
 
-const { List } = require('../cjs/list.js')
+const { Filter } = require('../cjs/filter.js')
+const { List }   = require('../cjs/list.js')
 const storage  = require('@itrocks/storage')
 
 const originalDataSource = storage.dataSource
@@ -49,6 +50,34 @@ test('html keeps the mandatory scope on paginated feed requests', async () => {
 	assert.deepEqual(calls.search[0].options, ['sort', 'filter', 'feed'])
 	assert.equal(calls.count.length, 0)
 	assert.equal(response.template, 'feed.html')
+})
+
+test('html restores session filters for queries and inputs, and accepts clearing them', async () => {
+	const session = {}
+	const render = async data => {
+		const { calls, list } = listDouble()
+		list.filter = new Filter({ map: callback => ['owner', 'text'].map(name => callback({ name })) })
+		const request = actionRequest(data)
+		request.request.session = session
+		const response = await list.html(request)
+		return { calls, response }
+	}
+
+	await render({ search: { text: 'Alice & Bob' } })
+	const restored = await render({})
+	assert.deepEqual({ ...restored.calls.search[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual(restored.response.data.search, { owner: '', text: 'Alice & Bob' })
+	assert.equal(restored.calls.count[0].search, restored.calls.search[0].search)
+
+	const sorted = await render({ sort: 'text' })
+	assert.deepEqual({ ...sorted.calls.search[0].search }, { text: 'Alice & Bob' })
+	const feed = await render({ offset: '50', search: { owner: '', text: 'Alice & Bob' } })
+	assert.deepEqual({ ...feed.calls.search[0].search }, { text: 'Alice & Bob' })
+
+	await render({ search: { text: '' } })
+	const cleared = await render({})
+	assert.deepEqual({ ...cleared.calls.search[0].search }, {})
+	assert.equal(cleared.response.data.search.text, '')
 })
 
 test('json forwards its mandatory scope directly to the data source', async () => {

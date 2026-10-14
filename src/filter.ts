@@ -19,7 +19,7 @@ export class Filter<T extends object> extends Parameter
 	getParams(request: Request)
 	{
 		for (const property of this.columns.map(property => property.name)) {
-			this.search[property] = ''
+			this.search[property] ??= ''
 		}
 		for (const [property, search] of Object.entries(request.data.search ?? {})) {
 			if (!(property in this.search)) continue
