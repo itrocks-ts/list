@@ -67,3 +67,23 @@ test('column changes persist and return 204 before any data query, even for an e
 		assert.deepEqual(session.list[routeOf(Entry)].columns, value ? [value] : [])
 	}
 })
+
+test('column saves preserve validation and restore an empty session on the next request', async () => {
+	const session = {}
+	for (const [value, expected] of [
+		['email', ['email']], ['name,unknown', ['email']], ['', []], [[], []], [[''], []]
+	]) {
+		const list = new List()
+		list.htmlResponse = (body, status) => ({ body, status })
+		list.feed.getParams = () => assert.fail('Column saves must finish before feed processing')
+		assert.deepEqual(await list.html({ type: Entry, request: request(value, session) }), { body: '', status: 204 })
+		assert.deepEqual(session.list[routeOf(Entry)].columns, expected)
+	}
+	for (const data of [{}, { columns: undefined }]) {
+		const list = new List()
+		const rendering = new Error('Normal list rendering reached')
+		list.feed.getParams = () => { throw rendering }
+		await assert.rejects(list.html({ type: Entry, request: { data, session } }), error => error === rendering)
+		assert.deepEqual(list.columns.serialize(), [])
+	}
+})

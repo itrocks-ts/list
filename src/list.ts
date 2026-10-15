@@ -35,7 +35,7 @@ export class List<T extends object = object> extends Action<T>
 		load(this, request.request, type)
 
 		columns.getParams(request.request, type)
-		if (request.request.data.columns) {
+		if (request.request.data.columns !== undefined) {
 			save(this, request.request, type)
 			return this.htmlResponse('', 204)
 		}
