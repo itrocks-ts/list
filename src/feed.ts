@@ -22,7 +22,7 @@ export class Feed extends Parameter
 		this.limit = xhrInfo.targetHeight
 			? Math.ceil(xhrInfo.targetHeight / this.lineHeight)
 		: (xhrInfo.visibleRows ?? Feed.DEFAULT_LIMIT)
-		this.offset = +request.data.offset
+		this.offset = +(request.data.offset ?? Feed.DEFAULT_OFFSET)
 	}
 
 	readOptions(options = new Array<Option>)
