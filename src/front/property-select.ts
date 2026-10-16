@@ -133,7 +133,10 @@ export class ListPropertySelect implements ConsumerPort
 					const header = document.createElement('th')
 					header.dataset.property = path
 					header.dataset.sortable = 'false'
-					header.textContent = path
+					const label = document.createElement('span')
+					label.className = 'label'
+					label.textContent = path
+					header.append(label)
 					const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
 						const cell = document.createElement('td')
 						cell.textContent = 'Loading…'

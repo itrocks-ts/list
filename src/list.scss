@@ -7,7 +7,6 @@ html.column-reorder * {
 main > article[data-action="list"] {
 
 	> header {
-		min-height: 44px;
 		position: relative;
 
 		> .summary {
@@ -120,11 +119,12 @@ table.objects {
 			z-index: 2;
 		}
 
-		&.moving::before, &.removing::before, &.column-add-provisional.column-reorder::before {
+		&.moving > .label::before,
+		&.removing > .label::before,
+		&.column-add-provisional.column-reorder > .label::before {
 			content: '';
 			display: inline-block;
 			height: 1em;
-			margin-left: -1.4em;
 			margin-right: .4em;
 			mask-position: center;
 			mask-repeat: no-repeat;
@@ -134,17 +134,17 @@ table.objects {
 			width: 1em;
 		}
 
-		&.moving::before {
+		&.moving > .label::before {
 			background: #2674c6;
 			mask-image: url('column-move.svg');
 		}
 
-		&.removing::before {
+		&.removing > .label::before {
 			background: #d51d2c;
 			mask-image: url('column-remove.svg');
 		}
 
-		&.column-add-provisional.column-reorder::before {
+		&.column-add-provisional.column-reorder > .label::before {
 			background: #2f8943;
 			mask-image: url('column-add.svg');
 		}
@@ -158,14 +158,13 @@ table.objects {
 		}
 
 		&[data-sort] {
-			padding-right: calc(.6em + 16px);
 			&::after {
 				content: '';
 				height: 24px;
 				mask: url('sort.svg') right center / 24px 24px no-repeat;
 				position: absolute;
-				right: 0;
-				top: calc(50% - 12px);
+				right: 4px;
+				top: 2px;
 				width: 24px;
 			}
 			&[data-reverse]::after { transform: scaleY(-1); }
@@ -225,14 +224,65 @@ table.objects {
 }
 
 main > article[data-action="list"] > header > .add-column {
+	background: white;
+	border: 0;
+	border-left: 1px solid #ccc;
+	border-radius: 0;
+	bottom: 0;
+	cursor: pointer;
+	font-size: 16px;
 	position: absolute;
 	right: 0;
 	top: 0;
-	min-height: 44px;
-	min-width: 44px;
+	width: 44px;
 }
 
 table.objects > thead > tr.properties > th {
-	> .label { display: block; margin-bottom: .6em; }
-	> input:not([type=checkbox]) { display: block; width: 100%; }
+	padding: 0;
+	position: sticky;
+
+	> .label, &.select::before {
+		border-bottom: 1px solid #d8d8d8;
+		display: block;
+		height: 28px;
+		line-height: 27px;
+		padding: 0 28px;
+		text-align: center;
+	}
+
+	&.select::before {
+		content: '';
+		padding: 0;
+	}
+
+	&.column-add-provisional::before {
+		content: none;
+	}
+
+	> input:not([type=checkbox]) {
+		border: 0;
+		border-radius: 0;
+		display: block;
+		height: 28px;
+		padding: 0 6px;
+		width: 100%;
+	}
+
+	> input[name=reset] {
+		background: url('filter-reset.svg') center no-repeat;
+		color: transparent;
+		cursor: pointer;
+		font-size: 0;
+		padding: 0;
+		width: 28px;
+	}
+
+	> input[data-property-filter] {
+		border-left: 1px solid #d8d8d8;
+	}
+
+	> input:focus {
+		box-shadow: inset 0 0 0 2px Highlight, var(--column-reorder-tint, 0 0 transparent);
+		outline: none;
+	}
 }
