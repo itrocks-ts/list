@@ -4,7 +4,9 @@
 		"email": "baptiste@pillot.fr"
 	},
 	"dependencies": {
+		"@itrocks/action": "latest",
 		"@itrocks/action-pack": "latest",
+		"@itrocks/action-request": "latest",
 		"@itrocks/build": "latest",
 		"@itrocks/class-type": "latest",
 		"@itrocks/class-view": "latest",
@@ -15,6 +17,7 @@
 		"@itrocks/reflect": "latest",
 		"@itrocks/reflect-path": "latest",
 		"@itrocks/request-response": "latest",
+		"@itrocks/route": "latest",
 		"@itrocks/sort": "latest",
 		"@itrocks/storage": "latest",
 		"@itrocks/table": "latest",
@@ -86,5 +89,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.12.0"
+	"version": "0.12.1"
 }
