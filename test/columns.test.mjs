@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import { test }          from 'node:test'
 
 const require = createRequire(import.meta.url)
+const { File } = require('@itrocks/class-file')
 const { Columns } = require('../cjs/columns.js')
 const { List }    = require('../cjs/list.js')
 const { List: ListProperties } = require('@itrocks/list-properties')
@@ -15,6 +16,7 @@ class Entry
 	email = ''
 	createdAt = ''
 }
+File(require.resolve('./fixtures/entry.d.ts').replace('.d.ts', '.js'))(Entry)
 ListProperties('name', 'email', 'createdAt')(Entry)
 
 const request = (columns, session = {}) => ({ data: columns === undefined ? {} : { columns }, session })

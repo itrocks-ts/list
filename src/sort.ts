@@ -94,7 +94,9 @@ export class Sort<T extends object> extends Parameter
 		if (!this.sorted) return SortOption
 		const properties = new Array<PropertyPath>
 		for (const [propertyName, reverse] of Object.entries(this.sorted)) {
-			properties.push(reverse ? new Reverse(propertyName) : propertyName)
+			const column = this.columns.properties.find(column => column.name === propertyName)
+			for (const path of column?.sortPaths() ?? [propertyName])
+				properties.push(reverse ? new Reverse(path) : path)
 		}
 		return new SortOption(properties)
 	}

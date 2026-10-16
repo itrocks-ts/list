@@ -1,6 +1,7 @@
 import { build }                        from '@itrocks/build/build.js'
-import { TableColumnReorder }           from '@itrocks/table/column-reorder.js'
+import { TableColumnAdd }               from '@itrocks/table/column-add.js'
 import { TableColumnReorderFreeze }     from '@itrocks/table/column-reorder-freeze.js'
+import { TableColumnReorder }           from '@itrocks/table/column-reorder.js'
 import { TableFeed }                    from '@itrocks/table/feed.js'
 import { TableFreeze }                  from '@itrocks/table/freeze.js'
 import { TableFreezeInheritBackground } from '@itrocks/table/freeze/inherit-background.js'
@@ -12,14 +13,18 @@ import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	table => {
-		const saveColumns = () => {
+		let saving = Promise.resolve()
+		const saveColumns = (): Promise<void> => {
 			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(':scope > th[data-property]')
 			const form    = table.closest('form')
-			if (!columns || !form) return
+			if (!columns || !form) return Promise.resolve()
 			const properties = Array.from(columns, column => encodeURIComponent(column.dataset.property ?? ''))
-			fetch(form.action + '?columns=' + properties.join(','), { keepalive: true }).catch(
-				error => console.error('Columns save error:', error)
-			)
+			const url = form.action + '?columns=' + properties.join(',')
+			saving = saving.catch(() => {}).then(async () => {
+				const response = await fetch(url, { keepalive: true })
+				if (!response.ok) throw new Error('Unable to save columns')
+			})
+			return saving
 		}
 		const tableColumnReorder = new TableColumnReorder({
 			isReorderable: header => header.dataset.property !== undefined,
@@ -33,12 +38,16 @@ build<HTMLTableElement>(
 				if (input) return { element: input as Element, value: input.value }
 			}
 		})
-		tableByElement(table, {
+		const addition = new TableColumnAdd({ identify: header => header.dataset.property })
+		const instance = tableByElement(table, {
 			plugins: [
-				tableColumnReorder, TableColumnReorderFreeze, TableFeed, TableFreeze, TableFreezeInheritBackground,
+				tableColumnReorder, addition, TableColumnReorderFreeze, TableFeed, TableFreeze, TableFreezeInheritBackground,
 				TableFreezeInheritBorder, tableLink
 			]
 		})
+		table.dispatchEvent(new CustomEvent('itrocks:list-ready', {
+			bubbles: true, detail: { addition, instance, saveColumns }
+		}))
 		table.addEventListener('click', event => {
 			const element = event.target
 			if ((element instanceof HTMLInputElement) || !(element instanceof HTMLElement)) return
@@ -51,7 +60,7 @@ build<HTMLTableElement>(
 		})
 		table.tHead?.addEventListener('click', event => {
 			const element = event.target
-			if (!(element instanceof HTMLElement)) return
+			if (!(element instanceof HTMLElement) || element.closest('input, button')) return
 			const cell = element.closest('table, th')
 			if (!(cell instanceof HTMLTableCellElement) || !cell.dataset.property) return
 			const form = cell.closest('form')

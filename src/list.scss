@@ -7,11 +7,13 @@ html.column-reorder * {
 main > article[data-action="list"] {
 
 	> header {
+		min-height: 44px;
+		position: relative;
 
 		> .summary {
 			padding: 13px 10px 12px;
 			position: absolute;
-			right: 0;
+			right: 48px;
 			white-space: nowrap;
 		}
 	}
@@ -207,4 +209,17 @@ table.objects {
 			border-left: 1px solid #d8d8d8;
 		}
 	}
+}
+
+main > article[data-action="list"] > header > .add-column {
+	position: absolute;
+	right: 0;
+	top: 0;
+	min-height: 44px;
+	min-width: 44px;
+}
+
+table.objects > thead > tr.properties > th {
+	> .label { display: block; margin-bottom: .6em; }
+	> input:not([type=checkbox]) { display: block; width: 100%; }
 }

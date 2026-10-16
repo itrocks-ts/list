@@ -21,10 +21,21 @@ export class Filter<T extends object> extends Parameter
 		for (const property of this.columns.map(property => property.name)) {
 			this.search[property] ??= ''
 		}
-		for (const [property, search] of Object.entries(request.data.search ?? {})) {
-			if (!(property in this.search)) continue
-			this.search[property] = search
+		if ('reset' in request.data) this.search = Object.fromEntries(Object.keys(this.search).map(path => [path, '']))
+		const apply = (value: unknown, prefix = '') => {
+			if (!value || typeof value !== 'object' || Array.isArray(value)) return
+			for (const [name, child] of Object.entries(value)) {
+				let decoded: string
+				try { decoded = decodeURIComponent(name) }
+				catch { continue }
+				const path = prefix ? `${prefix}.${decoded}` : decoded
+				if (typeof child === 'string' && Object.hasOwn(this.search, path)) this.search[path] = child
+				else apply(child, path)
+			}
 		}
+		apply(request.data.search)
+		for (const [name, value] of Object.entries(request.data))
+			if (name.startsWith('search.') && typeof value === 'string') apply({ [name.slice(7)]: value })
 	}
 
 	readOptions(options = new Array<Option>)

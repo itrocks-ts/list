@@ -14,9 +14,10 @@
 <!--BEGIN-->
 
 	<!--#main-->
-	<article data-action="list" data-class="{type.name}" data-route="{type.@route}">
+	<article data-action="list" data-class="{type.name}" data-route="{type.@route}" data-property-root="{?root}">
 		<header>
 			<h2>{type.@output.ucFirst} list</h2>
+			<button class="add-column" hidden type="button" aria-label="Add column">+</button>
 			<section class="summary">{count} elements</section>
 			<ul class="general actions">
 				<!--generalActions-->
@@ -28,15 +29,13 @@
 			<table class="objects" data-feed-fields="search.*" data-link="{type.@route}">
 				<thead>
 					<tr class="properties">
-						<th class="select" data-freeze><input name="select" type="checkbox" value="all"></th>
+						<th class="select" data-freeze><input name="select" type="checkbox" value="all">
+							<input name="reset" title="reset search filters" type="submit" value="reset"></th>
 						<!--columns-->
-						<th data-property="{name}" data-reverse="{?reverse}" data-sort="{?sort}">{@display}</th>
-						<!--end-->
-					</tr>
-					<tr class="search">
-						<th><input name="reset" title="reset search filters" type="submit" value="reset"></th>
-						<!--columns-->
-						<th><input name="search.{name.toField}" value="{?.search.{name.toField}}"></th>
+						<th data-property="{name}" data-reverse="{?reverse}" data-sort="{?sort}">
+							<span class="label">{label}</span>
+							<input aria-label="Filter {label}" data-property-filter="{name}" name="search.{field}" value="{search}">
+						</th>
 						<!--end-->
 					</tr>
 				</thead>

@@ -18,24 +18,24 @@ after(() => {
 	storage.dataSource = originalDataSource
 })
 
-test('html combines user filters and a mandatory scope for search and count', async () => {
+test('html combines user filters and a mandatory scope for projection and count', async () => {
 	const filter = { owner: 'requested-owner', text: 'visible text' }
 	const scope  = { owner: 'authorized-owner', tenant: 42 }
 	const { calls, list } = listDouble({ filter })
 
 	await list.html(actionRequest(), scope)
 
-	assert.equal(calls.search.length, 1)
+	assert.equal(calls.select.length, 1)
 	assert.equal(calls.count.length, 1)
-	assert.equal(calls.search[0].type, Entry)
-	assert.deepEqual({ ...calls.search[0].search }, {
+	assert.equal(calls.select[0].type, Entry)
+	assert.deepEqual({ ...calls.select[0].search }, {
 		owner:  'authorized-owner',
 		tenant: 42,
 		text:   'visible text'
 	})
-	assert.equal(Object.getPrototypeOf(calls.search[0].search), Entry.prototype)
-	assert.equal(calls.count[0].search, calls.search[0].search)
-	assert.deepEqual(calls.search[0].options, ['sort', 'filter', 'feed'])
+	assert.equal(Object.getPrototypeOf(calls.select[0].search), Entry.prototype)
+	assert.equal(calls.count[0].search, calls.select[0].search)
+	assert.deepEqual(calls.select[0].options, ['sort', 'filter', 'feed'])
 	assert.deepEqual(scope, { owner: 'authorized-owner', tenant: 42 })
 })
 
@@ -45,9 +45,9 @@ test('html keeps the mandatory scope on paginated feed requests', async () => {
 
 	const response = await list.html(actionRequest({ offset: '50' }), scope)
 
-	assert.equal(calls.search.length, 1)
-	assert.deepEqual({ ...calls.search[0].search }, { tenant: 42, text: 'visible text' })
-	assert.deepEqual(calls.search[0].options, ['sort', 'filter', 'feed'])
+	assert.equal(calls.select.length, 1)
+	assert.deepEqual({ ...calls.select[0].search }, { tenant: 42, text: 'visible text' })
+	assert.deepEqual(calls.select[0].options, ['sort', 'filter', 'feed'])
 	assert.equal(calls.count.length, 0)
 	assert.equal(response.template, 'feed.html')
 })
@@ -65,18 +65,18 @@ test('html restores session filters for queries and inputs, and accepts clearing
 
 	await render({ search: { text: 'Alice & Bob' } })
 	const restored = await render({})
-	assert.deepEqual({ ...restored.calls.search[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual({ ...restored.calls.select[0].search }, { text: 'Alice & Bob' })
 	assert.deepEqual(restored.response.data.search, { owner: '', text: 'Alice & Bob' })
-	assert.equal(restored.calls.count[0].search, restored.calls.search[0].search)
+	assert.equal(restored.calls.count[0].search, restored.calls.select[0].search)
 
 	const sorted = await render({ sort: 'text' })
-	assert.deepEqual({ ...sorted.calls.search[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual({ ...sorted.calls.select[0].search }, { text: 'Alice & Bob' })
 	const feed = await render({ offset: '50', search: { owner: '', text: 'Alice & Bob' } })
-	assert.deepEqual({ ...feed.calls.search[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual({ ...feed.calls.select[0].search }, { text: 'Alice & Bob' })
 
 	await render({ search: { text: '' } })
 	const cleared = await render({})
-	assert.deepEqual({ ...cleared.calls.search[0].search }, {})
+	assert.deepEqual({ ...cleared.calls.select[0].search }, {})
 	assert.equal(cleared.response.data.search.text, '')
 })
 
@@ -97,8 +97,8 @@ test('omitting the scope preserves html filters and the json query', async () =>
 
 	await htmlDouble.list.html(actionRequest())
 
-	assert.deepEqual({ ...htmlDouble.calls.search[0].search }, { text: 'visible text' })
-	assert.equal(htmlDouble.calls.count[0].search, htmlDouble.calls.search[0].search)
+	assert.deepEqual({ ...htmlDouble.calls.select[0].search }, { text: 'visible text' })
+	assert.equal(htmlDouble.calls.count[0].search, htmlDouble.calls.select[0].search)
 
 	const jsonDouble = listDouble()
 
@@ -127,9 +127,15 @@ function listDouble({ filter = {}, offset = 0 } = {})
 {
 	const calls = {
 		count:  [],
-		search: []
+		search: [],
+		select: []
 	}
 	activeDataSource = {
+		async select(type, columns, search, options)
+		{
+			calls.select.push({ columns, options, search, type })
+			return { rootType: type, columns: [], rows: [{ rootId: 1, cells: [] }] }
+		},
 		async count(type, search)
 		{
 			calls.count.push({ search, type })
@@ -144,6 +150,10 @@ function listDouble({ filter = {}, offset = 0 } = {})
 
 	const list = new List()
 	list.columns = {
+		[Symbol.iterator]() { return [][Symbol.iterator]() },
+		map() { return [] },
+		serialize() { return [] },
+		projected(result) { return result.rows },
 		getParams()
 		{},
 		propertiesOf(object)

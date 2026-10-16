@@ -1,16 +1,16 @@
 import { Type }             from '@itrocks/class-type'
 import { ListReflectClass } from '@itrocks/list-properties'
-import { ReflectProperty }  from '@itrocks/reflect'
 import { Request }          from '@itrocks/request-response'
 import { Option }           from '@itrocks/storage'
+import { ProjectionResult } from '@itrocks/storage'
 import { Parameter }        from './parameter'
+import { ListColumn }       from './projection'
 
-export class Columns<T extends object> extends Parameter implements Iterable<ReflectProperty<T>>
+export class Columns<T extends object> extends Parameter implements Iterable<ListColumn>
 {
 
 	private configured = false
-
-	properties = new Array<ReflectProperty<T>>;
+	properties: ListColumn[] = [];
 
 	[Symbol.iterator]()
 	{
@@ -21,27 +21,21 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 	{
 		const data = request.data.columns
 		if (data !== undefined) {
-			const propertyNames = (Array.isArray(data) ? data : [data]).flatMap(
+			const names = (Array.isArray(data) ? data : [data]).flatMap(
 				property => (typeof property === 'string') ? (property ? property.split(',') : []) : property
 			)
-			if (propertyNames.every((property): property is string => typeof property === 'string')) {
-				const reflected  = new ListReflectClass(type).listProperties()
-				const reordered  = propertyNames.map(
-					propertyName => reflected.find(property => property.name.toString() === propertyName)
-				)
-				const properties = reordered.filter((property): property is ReflectProperty<T> => !!property)
-				if (
-					(properties.length === propertyNames.length)
-					&& (new Set(properties).size === propertyNames.length)
-				) {
-					this.configured = true
+			if (names.every((name): name is string => typeof name === 'string') && new Set(names).size === names.length) {
+				try {
+					const properties = names.map(name => new ListColumn(type, name))
 					this.properties = properties
+					this.configured = true
 				}
+				catch { /* Invalid saved requests preserve the previous configuration. */ }
 			}
 		}
-		if (!this.configured && !this.length) {
-			this.properties = new ListReflectClass(type).listProperties()
-		}
+		if (!this.configured && !this.length)
+			this.properties = new ListReflectClass(type).listProperties().map(property =>
+				new ListColumn(type, String(property.name)))
 		this.configured = true
 	}
 
@@ -50,14 +44,21 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 		return this.properties.length
 	}
 
-	map(callback: (value: ReflectProperty<T>) => any)
+	map<R>(callback: (value: ListColumn) => R): R[]
 	{
 		return this.properties.map(callback)
 	}
 
-	propertiesOf(object: T)
+	async projected(result: ProjectionResult)
 	{
-		return this.properties.map(property => new ReflectProperty(object, property.name))
+		if (result.columns.some((column, index) => column.path !== this.properties[index]?.name)
+			|| result.columns.length !== this.length) throw new Error('Projection columns do not match the list')
+		return Promise.all(result.rows.map(async row => ({
+			id: row.rootId,
+			properties: await Promise.all(row.cells.map(async (cell, index) => ({
+				outputOptionalContainer: await this.properties[index].output(cell)
+			})))
+		})))
 	}
 
 	readOptions(options = new Array<Option>)
@@ -65,13 +66,9 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 		return options
 	}
 
-	remove(propertyName: string)
+	remove(name: string)
 	{
-		for (const property of this.properties) {
-			if (property.name !== propertyName) continue
-			this.properties.splice(this.properties.indexOf(property), 1)
-			return
-		}
+		this.properties = this.properties.filter(property => property.name !== name)
 	}
 
 	serialize()
@@ -79,13 +76,16 @@ export class Columns<T extends object> extends Parameter implements Iterable<Ref
 		return this.properties.map(property => property.name)
 	}
 
-	unserialize(data: (keyof T)[], type: Type<T>)
+	unserialize(data: string[], type: Type<T>)
 	{
+		this.properties = data.flatMap(name => {
+			try { return [new ListColumn(type, name)] }
+			catch { return [] }
+		})
 		this.configured = true
-		this.properties = data.map(property => new ReflectProperty(type, property))
 	}
 
-	unshift(property: ReflectProperty<T>)
+	unshift(property: ListColumn)
 	{
 		return this.properties.unshift(property)
 	}

@@ -124,7 +124,7 @@ Both `html()` and `json()` accept an optional application scope as a `SearchType
 the scope from trusted application state rather than passing request data through directly.
 
 For `html()`, the scope is merged after user filters, so it takes precedence if both define
-the same property. The resulting search is passed to both `dataSource().search()` and
+the same property. The resulting search is passed to both `dataSource().select()` and
 `dataSource().count()` without replacing list loading, sorting, pagination, metadata,
 templates or the configured data source.
 
@@ -136,3 +136,45 @@ For `json()`, the scope is passed directly to `dataSource().search()`.
 - Filterable / searchable tables built on top of
   [@itrocks/table](https://github.com/itrocks-ts/table).
 - JSON list endpoints consumed by SPA or mobile applications.
+
+## Projected HTML columns
+
+HTML lists, feed pages and visible-column requests use the configured `DataSource.select()` implementation. The JSON
+action retains the full-entity `search()` contract. Mandatory scope overrides user filters and applies to projection,
+visible-id reloads and count. Projection requires a capable adapter and never falls back to entity reads.
+
+Columns are canonical root-relative paths. The list uses public reflection to resolve metadata and supplies each
+projected value to the existing HTML transformer of its final property. Singular object columns request their finite
+representative scalar closure, including nested representative relations. Rendering performs no lazy read. Absent
+relationships render empty cells; ignored scalar conversions render `Unavailable`; missing representative fields fail
+explicitly. Plural or unknown multiplicity is refused before SQL, without changing the selected columns.
+
+`@itrocks/list/projection` exports `ListColumn`, `representationFields` and `listRepresentationDependsOn`. Custom output
+transformations must declare every input through the `fields(type, ancestors, property?)` resolver when their inputs
+differ from `representativeOf(type)`. Return relative paths, or `undefined` to use the standard metadata. An object
+property/type transformer other than public `storeOutput` is refused before querying unless the resolver declares its
+fields. This check also applies to nested representative relations. A custom global representative callback must provide
+a resolver as part of its composition; arbitrary callback internals are not inferred. Cyclic representative expansion is
+rejected. The hook does not change SQL construction or object reconstruction. Object heading sort expands to
+representative scalar paths followed by object identity; storage adds the root tie-breaker.
+
+`listDependsOn({ access })` accepts an asynchronous request-scoped adapter returning `{ root?, authorise(path) }`. The
+framework binds configured metadata roots and checks selected paths, representative fields, filters and ordering.
+Without a configured root the ordinary list remains available, with no selector command. Never retain request state in
+the dependency hook. The configured data source remains responsible for storage and mandatory record scope.
+
+`GET /<business-route>/list?column=<path>&rowIds=<comma-separated-identifiers>` uses the HTML action and returns a JSON
+column descriptor with rendered cells keyed by root id. It intersects visible ids with the current filters and mandatory
+scope, makes one projection and performs no count. Invalid selections return 400. Full entity JSON remains available
+through `/list/json`. Column configuration saves use the established `columns` parameter and return 204.
+
+The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect`, with explicit metadata, table
+addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
+navigation. It reserves pending paths, confirms accepted additions, reveals/highlights duplicates without moving focus,
+and checks row identity before insertion. Failed selection leaves the context intact. It loads only currently visible
+row ids; changing the row view while loading rejects the obsolete response with a retry message. Click requests await
+their data before committing a new column; external drag previews belong to the later drag API. The header contains each
+label and its filter together, so it uses the table addition plugin's single-header contract.
+
+`npm test` runs the server contracts; `test/property-select.test.mjs` covers projection, representation, scope, path
+configuration, filters and ordering. Real framework/browser proof is tracked by the property-select L2-LIST delivery.

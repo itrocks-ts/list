@@ -7,15 +7,23 @@
 		"@itrocks/action-pack": "latest",
 		"@itrocks/build": "latest",
 		"@itrocks/class-type": "latest",
+		"@itrocks/class-view": "latest",
+		"@itrocks/core-transformers": "latest",
 		"@itrocks/list-properties": "latest",
+		"@itrocks/property-select": "latest",
+		"@itrocks/property-view": "latest",
 		"@itrocks/reflect": "latest",
+		"@itrocks/reflect-path": "latest",
 		"@itrocks/request-response": "latest",
 		"@itrocks/sort": "latest",
+		"@itrocks/storage": "latest",
 		"@itrocks/table": "latest",
+		"@itrocks/transformer": "latest",
 		"@itrocks/xtarget": "latest"
 	},
 	"description": "Generic action-based object list navigation in HTML and JSON",
 	"devDependencies": {
+		"@itrocks/class-file": "latest",
 		"@types/node": "^24.10",
 		"sass": "^1.95",
 		"typescript": "^7.0"
@@ -23,7 +31,11 @@
 	"engines": {
 		"node": ">=24"
 	},
-	"exports": "./cjs/list.js",
+	"exports": {
+		".": "./cjs/list.js",
+		"./projection": "./cjs/projection.js",
+		"./property-select.js": "./property-select.js"
+	},
 	"homepage": "https://it.rocks",
 	"files": [
 		"config.yaml",
@@ -71,5 +83,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.8.2"
+	"version": "0.9.0"
 }
