@@ -119,32 +119,31 @@ table.objects {
 			z-index: 2;
 		}
 
-		&.moving > .label::before,
-		&.removing > .label::before,
-		&.column-add-provisional.column-reorder > .label::before {
+		&.moving::before, &.removing::before, &.column-add-provisional.column-reorder::before {
 			content: '';
 			display: inline-block;
 			height: 1em;
-			margin-right: .4em;
+			margin-left: -1em;
 			mask-position: center;
 			mask-repeat: no-repeat;
 			mask-size: contain;
 			pointer-events: none;
+			transform: translateX(-.15em);
 			vertical-align: -.22em;
 			width: 1em;
 		}
 
-		&.moving > .label::before {
+		&.moving::before {
 			background: #2674c6;
 			mask-image: url('column-move.svg');
 		}
 
-		&.removing > .label::before {
+		&.removing::before {
 			background: #d51d2c;
 			mask-image: url('column-remove.svg');
 		}
 
-		&.column-add-provisional.column-reorder > .label::before {
+		&.column-add-provisional.column-reorder::before {
 			background: #2f8943;
 			mask-image: url('column-add.svg');
 		}
@@ -158,12 +157,13 @@ table.objects {
 		}
 
 		&[data-sort] {
+			padding-right: calc(.6em + 16px);
 			&::after {
 				content: '';
 				height: 24px;
 				mask: url('sort.svg') right center / 24px 24px no-repeat;
 				position: absolute;
-				right: 4px;
+				right: 0;
 				top: 2px;
 				width: 24px;
 			}
@@ -243,21 +243,19 @@ main > article[data-action="list"] > header > .add-column {
 }
 
 table.objects > thead > tr.properties > th {
-	padding: 0;
+	line-height: 28px;
+	padding-block: 0;
 	position: sticky;
+	text-align: center;
 
-	> .label, &.select::before {
-		border-bottom: 1px solid #d8d8d8;
-		display: block;
-		height: 28px;
-		line-height: 27px;
-		padding: 0 28px;
-		text-align: center;
+	&.select {
+		padding-inline: 0;
 	}
 
 	&.select::before {
 		content: '';
-		padding: 0;
+		display: block;
+		height: 28px;
 	}
 
 	&.column-add-provisional::before {
@@ -266,6 +264,7 @@ table.objects > thead > tr.properties > th {
 
 	> input:not([type=checkbox]) {
 		border: 0;
+		border-top: 1px solid #d8d8d8;
 		border-radius: 0;
 		display: block;
 		height: 28px;
@@ -284,6 +283,12 @@ table.objects > thead > tr.properties > th {
 
 	> input[data-property-filter] {
 		border-left: 1px solid #d8d8d8;
+		margin-left: -.6em;
+		width: calc(100% + 1.2em);
+	}
+
+	&[data-sort] > input[data-property-filter] {
+		width: calc(100% + 1.2em + 16px);
 	}
 
 	> input:focus {

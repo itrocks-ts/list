@@ -86,14 +86,11 @@ export class ListPropertySelect implements ConsumerPort
 		const header = document.createElement('th')
 		header.dataset.property = path
 		header.dataset.sortable = String(result.sortable)
-		const label = document.createElement('span')
-		label.className = 'label'
-		label.textContent = result.label
 		const input = document.createElement('input')
 		input.name = `search.${encodeURIComponent(path).replaceAll('.', '%2E')}`
 		input.dataset.propertyFilter = path
 		input.setAttribute('aria-label', `Filter ${result.label}`)
-		header.append(label, input)
+		header.append(result.label, input)
 		const cells = ids.map(id => {
 			const cell = document.createElement('td')
 			cell.innerHTML = values.get(id)!
@@ -133,10 +130,7 @@ export class ListPropertySelect implements ConsumerPort
 					const header = document.createElement('th')
 					header.dataset.property = path
 					header.dataset.sortable = 'false'
-					const label = document.createElement('span')
-					label.className = 'label'
-					label.textContent = path
-					header.append(label)
+					header.textContent = path
 					const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
 						const cell = document.createElement('td')
 						cell.textContent = 'Loading…'
