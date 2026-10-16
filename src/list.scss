@@ -52,7 +52,7 @@ table.objects {
 			padding: .6em;
 			white-space: nowrap;
 
-			&:last-child {
+			&:nth-last-child(1 of :not([hidden])) {
 				border-right: 1px solid #d8d8d8;
 			}
 		}
