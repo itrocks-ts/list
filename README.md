@@ -152,11 +152,12 @@ missing representative fields fail explicitly. Plural paths through a relationsh
 are refused before SQL.
 
 Direct collections display representative values separated by commas. A collection decorated with
-[`@Component()`](https://github.com/itrocks-ts/composition) uses its structured table output. The optional
-`@MultipleOutput('commas' | 'lines')` property decorator from `@itrocks/list/multiple-output` overrides this default.
-`'lines'` displays ordinary collections as a list and keeps component collections as a table. `'commas'` displays
-representative values on one line, including for components. `multipleOutputOf(type, property)` returns the effective
-mode and inherits explicit property metadata. For example:
+[`@Component()`](https://github.com/itrocks-ts/composition) displays up to eight representative values separated by
+commas. From nine values, it displays the count followed by the translated plural name of the destination type.
+Component collections never render a nested table in a list cell. The optional
+`@MultipleOutput('commas' | 'lines')` property decorator from `@itrocks/list/multiple-output` controls ordinary
+collections; `'lines'` displays them as a list.
+`multipleOutputOf(type, property)` returns the effective mode and inherits explicit property metadata. For example:
 
 ```ts
 import { MultipleOutput } from '@itrocks/list/multiple-output'

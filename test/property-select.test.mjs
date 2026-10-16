@@ -13,7 +13,7 @@ const { Columns, projectColumns } = require('../cjs/columns.js')
 const { Filter } = require('../cjs/filter.js')
 const { Sort } = require('../cjs/sort.js')
 const { List: ListProperties } = require('@itrocks/list-properties')
-const { representativeOf } = require('@itrocks/class-view')
+const { Representative, representativeOf } = require('@itrocks/class-view')
 const { storeOutput } = require('@itrocks/core-transformers')
 const { initCollectionHtmlTransformers } = require('@itrocks/core-transformers')
 const { Component } = require('@itrocks/composition')
@@ -66,7 +66,9 @@ test('plural, cyclic and undeclared custom representation closures fail before p
 	listRepresentationDependsOn({ fields: undefined })
 })
 
-test('direct plural columns retain comma and component rendering', async () => {
+test('component columns show up to eight values and count from nine', async () => {
+	const representative = representativeOf(City)
+	Representative('name')(City)
 	initCollectionHtmlTransformers({
 		representativeValueOf: async value => value.name,
 		propertyOutput: async (object, property) => String(object[property] ?? '')
@@ -83,20 +85,26 @@ test('direct plural columns retain comma and component rendering', async () => {
 	assert.equal(multipleOutputOf(Invoice, 'cities'), 'commas')
 	assert.equal(await column.output({ kind: 'value', value: cities }), 'Lyon, Paris')
 	Component()(Invoice.prototype, 'cities')
-	assert.equal(multipleOutputOf(Invoice, 'cities'), 'lines')
-	const complex = await column.output({ kind: 'value', value: cities })
-	assert.match(complex, /<table>/)
-	assert.equal((complex.match(/<tr>/g) ?? []).length, 3)
+	assert.equal(multipleOutputOf(Invoice, 'cities'), 'commas')
+	assert.equal(await column.output({ kind: 'value', value: cities }), 'Lyon, Paris')
+	assert.equal(await column.output({ kind: 'value', value: [] }), '')
+	const eight = Array.from({ length: 8 }, (_, index) => Object.assign(new City(), { name: `City ${index}` }))
+	assert.equal(await column.output({ kind: 'value', value: eight }),
+		Array.from({ length: 8 }, (_, index) => `City ${index}`).join(', '))
+	assert.equal(await column.output({ kind: 'value', value: [...eight, new City()] }), '9 cities')
 	Component(false)(Invoice.prototype, 'cities')
 	MultipleOutput('lines')(Invoice.prototype, 'cities')
 	assert.equal(multipleOutputOf(Invoice, 'cities'), 'lines')
 	assert.equal(await column.output({ kind: 'value', value: cities }),
 		'<ul><li>Lyon</li><li>Paris</li></ul>')
 	Component()(Invoice.prototype, 'cities')
+	assert.equal(await column.output({ kind: 'value', value: cities }), 'Lyon, Paris')
+	assert.equal(await column.output({ kind: 'value', value: [...eight, new City()] }), '9 cities')
 	MultipleOutput('commas')(Invoice.prototype, 'cities')
 	assert.equal(multipleOutputOf(Invoice, 'cities'), 'commas')
-	assert.match(await column.output({ kind: 'value', value: cities }), /Lyon .*Paris /)
+	assert.equal(await column.output({ kind: 'value', value: cities }), 'Lyon, Paris')
 	Component(false)(Invoice.prototype, 'cities')
+	Representative(...representative)(City)
 })
 
 test('plural cells use the visible projected ids and keep singular columns in place', async () => {

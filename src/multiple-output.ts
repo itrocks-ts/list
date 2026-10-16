@@ -1,5 +1,4 @@
 import { ObjectOrType } from '@itrocks/class-type'
-import { componentOf }  from '@itrocks/composition'
 import { decorate }     from '@itrocks/decorator/property'
 import { decoratorOf }  from '@itrocks/decorator/property'
 
@@ -14,6 +13,5 @@ export function MultipleOutput<T extends object>(mode: MultipleOutputMode)
 
 export function multipleOutputOf<T extends object>(target: ObjectOrType<T>, property: keyof T): MultipleOutputMode
 {
-	return decoratorOf<MultipleOutputMode | undefined, T>(target, property, MULTIPLE_OUTPUT)
-		?? (componentOf(target, property) ? 'lines' : 'commas')
+	return decoratorOf<MultipleOutputMode | undefined, T>(target, property, MULTIPLE_OUTPUT) ?? 'commas'
 }

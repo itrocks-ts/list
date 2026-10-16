@@ -1,21 +1,22 @@
-import { Type }                  from '@itrocks/class-type'
-import { representativeOf }      from '@itrocks/class-view'
-import { representativeValueOf } from '@itrocks/class-view'
-import { componentOf }           from '@itrocks/composition'
-import { HtmlContainer }         from '@itrocks/core-transformers'
-import { storeOutput }           from '@itrocks/core-transformers'
-import { displayOf }             from '@itrocks/property-view'
-import { ReflectPropertyPath }   from '@itrocks/reflect-path'
-import { resolvePropertyPath }   from '@itrocks/reflect-path'
-import { ProjectionCell }        from '@itrocks/storage'
-import { Selection }             from '@itrocks/storage'
-import { SelectionError }        from '@itrocks/storage'
-import { tr }                    from '@itrocks/translate'
-import { applyTransformer }      from '@itrocks/transformer'
-import { HTML }                  from '@itrocks/transformer'
-import { OUTPUT }                from '@itrocks/transformer'
-import { resolveTransformer }    from '@itrocks/transformer'
-import { multipleOutputOf }      from './multiple-output'
+import { Type }                        from '@itrocks/class-type'
+import { displayOf as classDisplayOf } from '@itrocks/class-view'
+import { representativeOf }            from '@itrocks/class-view'
+import { representativeValueOf }       from '@itrocks/class-view'
+import { componentOf }                 from '@itrocks/composition'
+import { HtmlContainer }               from '@itrocks/core-transformers'
+import { storeOutput }                 from '@itrocks/core-transformers'
+import { displayOf }                   from '@itrocks/property-view'
+import { ReflectPropertyPath }         from '@itrocks/reflect-path'
+import { resolvePropertyPath }         from '@itrocks/reflect-path'
+import { ProjectionCell }              from '@itrocks/storage'
+import { Selection }                   from '@itrocks/storage'
+import { SelectionError }              from '@itrocks/storage'
+import { tr }                          from '@itrocks/translate'
+import { applyTransformer }            from '@itrocks/transformer'
+import { HTML }                        from '@itrocks/transformer'
+import { OUTPUT }                      from '@itrocks/transformer'
+import { resolveTransformer }          from '@itrocks/transformer'
+import { multipleOutputOf }            from './multiple-output'
 
 type RepresentationProperty = ReturnType<typeof resolvePropertyPath>['property']
 
@@ -57,6 +58,7 @@ export class ListColumn
 	readonly multiple: boolean
 	readonly property: ReturnType<typeof resolvePropertyPath>['property']
 	readonly sortable: boolean
+	readonly target?: Type
 	reverse = false
 	search = ''
 	sort?: number
@@ -74,6 +76,7 @@ export class ListColumn
 			)
 		}
 		this.property = new ReflectPropertyPath(root, name as never)
+		this.target = resolved.target
 		this.label = resolved.segments.map(property => tr(displayOf(property.class.type, property.name))).join('.')
 		if (resolved.target && !this.multiple)
 			this.fields = representationFields(resolved.target, [], resolved.property)
@@ -85,11 +88,18 @@ export class ListColumn
 		if (cell.kind === 'unloaded') return '<span class="unavailable">Unavailable</span>'
 		if (this.fields && this.fields.some(field => !cell.loadedFields?.includes(field)))
 			throw new SelectionError('unsupported-selection', this.name)
-		const mode = this.multiple ? multipleOutputOf(this.property.class.type, this.property.name) : undefined
-		if (this.multiple && (mode === 'commas')
-			&& componentOf(this.property.class.type, this.property.name)) {
-			return (await Promise.all((cell.value as object[]).map(representativeValueOf))).sort().join(', ')
+		if (this.multiple && componentOf(this.property.class.type, this.property.name)) {
+			const values = cell.value as object[]
+			if (values.length >= 9) {
+				const name = this.target
+					? classDisplayOf(this.target)
+					: displayOf(this.property.class.type, this.property.name)
+				const plural = name.endsWith('y') ? name.slice(0, -1) + 'ies' : name + 's'
+				return `${values.length} ${tr(plural)}`
+			}
+			return (await Promise.all(values.map(representativeValueOf))).sort().join(', ')
 		}
+		const mode = this.multiple ? multipleOutputOf(this.property.class.type, this.property.name) : undefined
 		const lines = this.multiple && (mode === 'lines')
 		return await applyTransformer(
 			cell.value, this.property.class.type, this.property.name, HTML, OUTPUT,
