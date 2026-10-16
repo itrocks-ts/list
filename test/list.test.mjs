@@ -113,6 +113,7 @@ class Entry
 function actionRequest(data = {})
 {
 	return {
+		action: 'list', ids: [], route: '/entry',
 		request: {
 			data,
 			headers: {},

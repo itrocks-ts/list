@@ -5,6 +5,7 @@ import { normalisePath }           from '@itrocks/property-select/property-selec
 import type { Outcome }            from '@itrocks/property-select/property-select.js'
 import type { SelectionIntent }    from '@itrocks/property-select/property-select.js'
 import { TableColumnAdd }          from '@itrocks/table/column-add.js'
+import { HttpStateStore }          from './selector-state.js'
 
 export type PaneHandle = {
 	close(): void
@@ -14,6 +15,7 @@ export type PaneHandle = {
 	suspend(): { restore(): void }
 }
 export type ListSelectorOptions = {
+	advice?: readonly string[]
 	addition: TableColumnAdd
 	metadata: MetadataProvider
 	mountSelector(content: HTMLElement, title: string): PaneHandle
@@ -40,7 +42,8 @@ export class ListPropertySelect implements ConsumerPort
 		this.pane = options.mountSelector(content, 'Add columns')
 		this.view = new PropertySelectView(content, {
 			consumer: this, metadata: options.metadata, root: article.dataset.propertyRoot!,
-			stateMode: 'instance', usedPaths: this.paths()
+			advice: options.advice, stateKey: article.dataset.selectorKey!, stateMode: 'session',
+			stateStore: new HttpStateStore(), usedPaths: this.paths()
 		}, { templateUrl: options.templateUrl })
 		this.observer = new MutationObserver(() => this.view.selector.setConfiguration({ usedPaths: this.paths() }))
 		this.observer.observe(article.querySelector('thead')!, { childList: true, subtree: true })

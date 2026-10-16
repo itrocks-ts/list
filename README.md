@@ -178,3 +178,21 @@ label and its filter together, so it uses the table addition plugin's single-hea
 
 `npm test` runs the server contracts; `test/property-select.test.mjs` covers projection, representation, scope, path
 configuration, filters and ordering. Real framework/browser proof is tracked by the property-select L2-LIST delivery.
+
+## Selector session state
+
+The public `@itrocks/list/selector-state` entry exports `SessionStateStore`, `SelectorStateAction`, `selectorStateKey`
+and the composition hook `listStateDependsOn({ transaction })`. The injected function runs an operation against the
+request's authoritative session snapshot and resolves only after durable save. No session is retained by the binding.
+`SessionStateStore` implements the selector's read/write/remove port with revision checks and removal tombstones in
+`session.propertySelect`, separate from `session.list`. The framework supplies the HTTP adapter transaction.
+
+`selectorStateKey(request)` uses the router-resolved route, identifying ids and list action. Query and format arguments
+do not affect it. The rendered article supplies this opaque key to the browser. `GET`, `PUT` and `DELETE` at
+`/property-select/state/json` authorise the target list on every request; conflicts return 409 and ended sessions 410.
+Writes echo the opaque `X-Property-Select-Session` token returned by a read. It cannot identify or authenticate a user;
+it prevents a mounted selector from writing its old state into a new session.
+
+The public browser `@itrocks/list/selector-state.js` exports `HttpStateStore`, using same-origin credentials and
+no-store requests. `ListSelectorOptions.advice` supplies configured destinations. List column changes refresh used
+paths; only a confirmed new addition feeds the selector's recents. The browser displays recoverable persistence errors.

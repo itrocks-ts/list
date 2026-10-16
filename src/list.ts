@@ -1,22 +1,23 @@
-import { Action }         from '@itrocks/action'
-import { ActionEntry }    from '@itrocks/action'
-import { getActions }     from '@itrocks/action'
-import { Need }           from '@itrocks/action'
-import { Request }        from '@itrocks/action-request'
-import { Route }          from '@itrocks/route'
-import { routeOf }        from '@itrocks/route'
-import { dataSource }     from '@itrocks/storage'
-import { Identifiers }    from '@itrocks/storage'
-import { SearchType }     from '@itrocks/storage'
-import { SelectionError } from '@itrocks/storage'
-import { listAccess }     from './access'
-import { Columns }        from './columns'
-import { Feed }           from './feed'
-import { Filter }         from './filter'
-import { load }           from './persist'
-import { save }           from './persist'
-import { ListColumn }     from './projection'
-import { Sort }           from './sort'
+import { Action }           from '@itrocks/action'
+import { ActionEntry }      from '@itrocks/action'
+import { getActions }       from '@itrocks/action'
+import { Need }             from '@itrocks/action'
+import { Request }          from '@itrocks/action-request'
+import { Route }            from '@itrocks/route'
+import { routeOf }          from '@itrocks/route'
+import { dataSource }       from '@itrocks/storage'
+import { Identifiers }      from '@itrocks/storage'
+import { SearchType }       from '@itrocks/storage'
+import { SelectionError }   from '@itrocks/storage'
+import { listAccess }       from './access'
+import { Columns }          from './columns'
+import { Feed }             from './feed'
+import { Filter }           from './filter'
+import { load }             from './persist'
+import { save }             from './persist'
+import { ListColumn }       from './projection'
+import { selectorStateKey } from './selector-state'
+import { Sort }             from './sort'
 
 export { listDependsOn } from './access'
 export type { ListAccess, ListDependencies } from './access'
@@ -107,7 +108,8 @@ export class List<T extends object = object> extends Action<T>
 		}
 
 		return this.htmlTemplateResponse(
-			{ columns, count, generalActions, objects, root: access.root, search: filter.search, selectionActions, type },
+			{ columns, count, generalActions, objects, root: access.root, search: filter.search,
+				selectionActions, selectorKey: selectorStateKey(request), type },
 			request,
 			__dirname + '/list.html'
 		)
