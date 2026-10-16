@@ -15,7 +15,7 @@ export type PaneHandle = {
 	open(): void
 	remove(): void
 	subscribe(listener: (state: { present: boolean; open: boolean; suspended: boolean }) => void): () => void
-	suspend(): { restore(): void }
+	suspend(options?: { mobileOnly?: boolean }): { restore(): void }
 }
 export type ListSelectorOptions = {
 	advice?: readonly string[]
@@ -33,7 +33,12 @@ export class ListPropertySelect implements ConsumerPort
 	private readonly abort = new AbortController()
 	private readonly button: HTMLButtonElement
 	private disposed = false
-	private drag?: { intent: SelectionIntent; operation: ColumnOperation; paths: string[] }
+	private drag?: {
+		intent: SelectionIntent
+		operation: ColumnOperation
+		paths: string[]
+		restore(): void
+	}
 	private readonly observer: MutationObserver
 	private readonly pane: PaneHandle
 	private readonly pending = new Map<string, Promise<'added' | 'existing'>>()
@@ -109,44 +114,53 @@ export class ListPropertySelect implements ConsumerPort
 		if (this.disposed || this.drag || this.pending.size) throw new Error('A column operation is pending')
 		const path = normalisePath(intent.path)
 		const paths = this.paths()
-		const operation = this.options.addition.beginExternal({
-			id: path,
-			accept: async signal => {
-				const form = this.article.querySelector<HTMLFormElement>('form')!
-				const query = new URLSearchParams({ column: path, validate: '1' })
-				const response = await fetch(`${form.action}?${query}`, {
-					signal: AbortSignal.any([signal, this.abort.signal])
-				})
-				const result = await response.json() as { path?: string; error?: string }
-				if (!response.ok || result.path !== path) throw new Error(result.error ?? 'Column unavailable')
-			},
-			create: () => {
-				const header = document.createElement('th')
-				header.dataset.property = path
-				header.textContent = path
-				const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
-					const cell = document.createElement('td')
-					cell.textContent = 'Loading…'
-					return cell
-				})
-				return { cells, header }
-			},
-			load: async signal => {
-				try { return await this.loadColumn(path, signal) }
-				catch (error) {
-					if (!this.disposed && !signal.aborted) this.previewError(path)
-					throw error
+		const suspension = this.pane.suspend({ mobileOnly: true })
+		try {
+			const operation = this.options.addition.beginExternal({
+				id: path,
+				accept: async signal => {
+					const form = this.article.querySelector<HTMLFormElement>('form')!
+					const query = new URLSearchParams({ column: path, validate: '1' })
+					const response = await fetch(`${form.action}?${query}`, {
+						signal: AbortSignal.any([signal, this.abort.signal])
+					})
+					const result = await response.json() as { path?: string; error?: string }
+					if (!response.ok || result.path !== path) throw new Error(result.error ?? 'Column unavailable')
+				},
+				create: () => {
+					const header = document.createElement('th')
+					header.dataset.property = path
+					header.textContent = path
+					const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
+						const cell = document.createElement('td')
+						cell.textContent = 'Loading…'
+						return cell
+					})
+					return { cells, header }
+				},
+				load: async signal => {
+					try { return await this.loadColumn(path, signal) }
+					catch (error) {
+						if (!this.disposed && !signal.aborted) this.previewError(path)
+						throw error
+					}
 				}
-			}
-		}, sample)
-		this.drag = { intent, operation, paths }
+			}, sample)
+			this.drag = { intent, operation, paths, restore: () => suspension.restore() }
+		}
+		catch (error) {
+			suspension.restore()
+			throw error
+		}
 	}
 
 	cancel(id: string): void
 	{
 		if (this.drag?.intent.id !== id) return
-		this.drag.operation.cancel()
+		const drag = this.drag
+		drag.operation.cancel()
 		this.drag = undefined
+		drag.restore()
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
 	}
 
@@ -189,9 +203,9 @@ export class ListPropertySelect implements ConsumerPort
 		if (!drag || drag.intent.id !== id) throw new Error('Unknown column transport')
 		try {
 			const status = await drag.operation.finish(sample)
-			this.drag = undefined
 			if (status !== 'cancelled') await this.options.saveColumns()
 			if (this.disposed) return { ...drag.intent, status: 'cancelled' }
+			if (this.drag === drag) this.drag = undefined
 			this.view.selector.setConfiguration({ usedPaths: this.paths() })
 			return { ...drag.intent, status }
 		}
@@ -199,7 +213,10 @@ export class ListPropertySelect implements ConsumerPort
 			drag.operation.cancel()
 			return { ...drag.intent, status: 'rejected', message: String(error) }
 		}
-		finally { if (this.drag === drag) this.drag = undefined }
+		finally {
+			if (this.drag === drag) this.drag = undefined
+			drag.restore()
+		}
 	}
 
 	async mount(): Promise<boolean>

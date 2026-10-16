@@ -210,3 +210,8 @@ Pending paths and the active drag are reserved before asynchronous work. Used pa
 throughout the drag, and configuration saves exclude provisional cells. New accepted drops feed recents; moves and
 cancellations do not. Row-view changes and view disposal cancel transport. The desktop pane stays open, and capture is
 owned by the selector's surviving source controller. The consumer imports no home implementation, SQL or hydration code.
+
+The consumer requests `pane.suspend({ mobileOnly: true })` only when a source gesture has been recognised. The pane
+host owns its responsive breakpoint. The token is restored after acceptance and column persistence, or after
+cancellation/rejection; it never focuses the search field. View disposal removes the registration and invalidates late
+restoration. Custom pane adapters may implement the same optional suspension argument without importing `home`.
