@@ -113,8 +113,13 @@ export class ListPropertySelect implements ConsumerPort
 		if (this.disposed || this.drag || this.pending.size) throw new Error('A column operation is pending')
 		const path = normalisePath(intent.path)
 		const paths = this.paths()
+		const result = this.view.selector.search.results.find(result => result.property.path === path)
+		const property = result?.property || this.view.selector.context?.properties.find(property => property.path === path)
+		const label = result ? [...result.segments.map(segment => segment.label), result.property.label].join('.')
+			: property?.label || path
 		const suspension = this.pane.suspend({ mobileOnly: true })
 		try {
+			let provisionalHeader: HTMLTableCellElement | undefined
 			const operation = this.options.addition.beginExternal({
 				id: path,
 				accept: async signal => {
@@ -123,14 +128,16 @@ export class ListPropertySelect implements ConsumerPort
 					const response = await fetch(`${form.action}?${query}`, {
 						signal: AbortSignal.any([signal, this.abort.signal])
 					})
-					const result = await response.json() as { path?: string; error?: string }
+					const result = await response.json() as { label?: string; path?: string; error?: string }
 					if (!response.ok || result.path !== path) throw new Error(result.error ?? 'Column unavailable')
+					if (provisionalHeader?.isConnected && result.label) provisionalHeader.textContent = result.label
 				},
 				create: () => {
 					const header = document.createElement('th')
+					provisionalHeader = header
 					header.dataset.property = path
 					header.dataset.sortable = 'false'
-					header.textContent = path
+					header.textContent = label
 					const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
 						const cell = document.createElement('td')
 						cell.textContent = 'Loading…'

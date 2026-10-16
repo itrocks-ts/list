@@ -23,6 +23,7 @@
 		"@itrocks/sort": "latest",
 		"@itrocks/storage": "latest",
 		"@itrocks/table": "latest",
+		"@itrocks/translate": "latest",
 		"@itrocks/transformer": "latest",
 		"@itrocks/xtarget": "latest"
 	},
@@ -92,5 +93,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.13.3"
+	"version": "0.13.4"
 }

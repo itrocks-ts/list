@@ -10,6 +10,7 @@ import { resolvePropertyPath }   from '@itrocks/reflect-path'
 import { ProjectionCell }        from '@itrocks/storage'
 import { Selection }             from '@itrocks/storage'
 import { SelectionError }        from '@itrocks/storage'
+import { tr }                    from '@itrocks/translate'
 import { applyTransformer }      from '@itrocks/transformer'
 import { HTML }                  from '@itrocks/transformer'
 import { OUTPUT }                from '@itrocks/transformer'
@@ -73,7 +74,7 @@ export class ListColumn
 			)
 		}
 		this.property = new ReflectPropertyPath(root, name as never)
-		this.label = resolved.segments.map(property => displayOf(property.class.type, property.name)).join(' › ')
+		this.label = resolved.segments.map(property => tr(displayOf(property.class.type, property.name))).join('.')
 		if (resolved.target && !this.multiple)
 			this.fields = representationFields(resolved.target, [], resolved.property)
 	}

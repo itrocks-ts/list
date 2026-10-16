@@ -27,7 +27,9 @@ function fixture()
 		article: { querySelectorAll: () => [{ dataset: { property: 'number' } }, { dataset: { property: 'city' } }] },
 		disposed: false, drag,
 		options: { saveColumns: () => { events.push('save'); return save.promise } },
-		pending: new Map(), view: { selector: { setConfiguration: () => events.push('configuration') } }
+		pending: new Map(), view: { selector: {
+			search: { results: [] }, setConfiguration: () => events.push('configuration')
+		} }
 	})
 	return { consumer, drag, events, finish, save }
 }
@@ -83,4 +85,26 @@ test('the pane folds before external geometry starts and restores on synchronous
 	} }
 	assert.throws(() => f.consumer.begin(f.drag.intent, {}), /Busy table/)
 	assert.deepEqual(f.events, ['fold', 'restore'])
+})
+
+test('a dropped nested property uses its translated path in the provisional header', () => {
+	const f = fixture()
+	const document = globalThis.document
+	let label
+	f.consumer.drag = undefined
+	f.consumer.view.selector.search.results = [{
+		property: { label: 'nom', path: 'city.country.name' },
+		segments: [{ label: 'ville' }, { label: 'pays' }]
+	}]
+	f.consumer.pane = { suspend: () => ({ restore: () => {} }) }
+	f.consumer.options.addition = { beginExternal: source => {
+		label = source.create().header.textContent
+		return { cancel: () => {} }
+	} }
+	globalThis.document = { createElement: () => ({ dataset: {}, textContent: '' }) }
+	try {
+		f.consumer.begin({ ...f.drag.intent, path: 'city.country.name' }, {})
+		assert.equal(label, 'ville.pays.nom')
+	}
+	finally { globalThis.document = document }
 })

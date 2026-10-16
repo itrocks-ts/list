@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { after, test } from 'node:test'
 
 const require = createRequire(import.meta.url)
@@ -22,6 +25,20 @@ const original = storage.dataSource
 ListProperties('number')(Invoice)
 after(() => { storage.dataSource = original })
 const request = (data = {}, session = {}) => ({ type: Invoice, request: { data, headers: {}, session } })
+
+test('column labels translate every property in a nested path', async () => {
+	const directory = await mkdtemp(join(tmpdir(), 'list-column-labels-'))
+	try {
+		const file = join(directory, 'labels.csv')
+		await writeFile(file, 'city;ville\ncountry;pays\nname;nom\n')
+		const { trLoad, trWithLanguage } = require('@itrocks/translate')
+		await trLoad(file, 'fr-list-column-test')
+		const label = trWithLanguage('fr-list-column-test', () =>
+			new ListColumn(Invoice, 'city.country.name').label)
+		assert.equal(label, 'ville.pays.nom')
+	}
+	finally { await rm(directory, { recursive: true, force: true }) }
+})
 
 test('object and deep columns derive a finite representation closure through reflection', async () => {
 	const column = new ListColumn(Invoice, 'city')
