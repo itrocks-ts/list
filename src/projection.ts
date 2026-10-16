@@ -1,17 +1,20 @@
-import { Type }                from '@itrocks/class-type'
-import { representativeOf }    from '@itrocks/class-view'
-import { HtmlContainer }       from '@itrocks/core-transformers'
-import { storeOutput }         from '@itrocks/core-transformers'
-import { displayOf }           from '@itrocks/property-view'
-import { ReflectPropertyPath } from '@itrocks/reflect-path'
-import { resolvePropertyPath } from '@itrocks/reflect-path'
-import { ProjectionCell }      from '@itrocks/storage'
-import { Selection }           from '@itrocks/storage'
-import { SelectionError }      from '@itrocks/storage'
-import { applyTransformer }    from '@itrocks/transformer'
-import { HTML }                from '@itrocks/transformer'
-import { OUTPUT }              from '@itrocks/transformer'
-import { resolveTransformer }  from '@itrocks/transformer'
+import { Type }                  from '@itrocks/class-type'
+import { representativeOf }      from '@itrocks/class-view'
+import { representativeValueOf } from '@itrocks/class-view'
+import { componentOf }           from '@itrocks/composition'
+import { HtmlContainer }         from '@itrocks/core-transformers'
+import { storeOutput }           from '@itrocks/core-transformers'
+import { displayOf }             from '@itrocks/property-view'
+import { ReflectPropertyPath }   from '@itrocks/reflect-path'
+import { resolvePropertyPath }   from '@itrocks/reflect-path'
+import { ProjectionCell }        from '@itrocks/storage'
+import { Selection }             from '@itrocks/storage'
+import { SelectionError }        from '@itrocks/storage'
+import { applyTransformer }      from '@itrocks/transformer'
+import { HTML }                  from '@itrocks/transformer'
+import { OUTPUT }                from '@itrocks/transformer'
+import { resolveTransformer }    from '@itrocks/transformer'
+import { multipleOutputOf }      from './multiple-output'
 
 type RepresentationProperty = ReturnType<typeof resolvePropertyPath>['property']
 
@@ -50,7 +53,9 @@ export class ListColumn
 	readonly field: string
 	readonly fields?: readonly string[]
 	readonly label: string
+	readonly multiple: boolean
 	readonly property: ReturnType<typeof resolvePropertyPath>['property']
+	readonly sortable: boolean
 	reverse = false
 	search = ''
 	sort?: number
@@ -59,7 +64,9 @@ export class ListColumn
 	{
 		this.field = encodeURIComponent(name).replaceAll('.', '%2E')
 		const resolved = resolvePropertyPath(root, name)
-		if (resolved.targetMultiplicity !== 'one') {
+		this.multiple = resolved.targetMultiplicity === 'many'
+		this.sortable = !this.multiple
+		if (resolved.targetMultiplicity !== 'one' && !(this.multiple && resolved.segments.length === 1)) {
 			throw new SelectionError(
 				resolved.targetMultiplicity === 'many' ? 'multiple-values' : 'unsupported-selection',
 				name
@@ -67,7 +74,8 @@ export class ListColumn
 		}
 		this.property = new ReflectPropertyPath(root, name as never)
 		this.label = resolved.segments.map(property => displayOf(property.class.type, property.name)).join(' › ')
-		if (resolved.target) this.fields = representationFields(resolved.target, [], resolved.property)
+		if (resolved.target && !this.multiple)
+			this.fields = representationFields(resolved.target, [], resolved.property)
 	}
 
 	async output(cell: ProjectionCell): Promise<string>
@@ -76,13 +84,21 @@ export class ListColumn
 		if (cell.kind === 'unloaded') return '<span class="unavailable">Unavailable</span>'
 		if (this.fields && this.fields.some(field => !cell.loadedFields?.includes(field)))
 			throw new SelectionError('unsupported-selection', this.name)
+		const mode = this.multiple ? multipleOutputOf(this.property.class.type, this.property.name) : undefined
+		if (this.multiple && (mode === 'commas')
+			&& componentOf(this.property.class.type, this.property.name)) {
+			return (await Promise.all((cell.value as object[]).map(representativeValueOf))).sort().join(', ')
+		}
+		const lines = this.multiple && (mode === 'lines')
 		return await applyTransformer(
-			cell.value, this.property.class.type, this.property.name, HTML, OUTPUT, new HtmlContainer(false)
+			cell.value, this.property.class.type, this.property.name, HTML, OUTPUT,
+			new HtmlContainer(false, !this.multiple || lines)
 		)
 	}
 
 	selection(): Selection
 	{
+		if (this.multiple) throw new SelectionError('multiple-values', this.name)
 		return this.fields ? { path: this.name, objectFields: this.fields } : this.name
 	}
 

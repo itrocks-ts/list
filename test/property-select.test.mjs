@@ -6,12 +6,16 @@ const require = createRequire(import.meta.url)
 const { City, Country, Invoice } = require('./fixtures/graph.cjs')
 const { List, listDependsOn } = require('@itrocks/list')
 const { ListColumn, representationFields, listRepresentationDependsOn } = require('@itrocks/list/projection')
-const { Columns } = require('../cjs/columns.js')
+const { Columns, projectColumns } = require('../cjs/columns.js')
 const { Filter } = require('../cjs/filter.js')
 const { Sort } = require('../cjs/sort.js')
 const { List: ListProperties } = require('@itrocks/list-properties')
 const { representativeOf } = require('@itrocks/class-view')
 const { storeOutput } = require('@itrocks/core-transformers')
+const { initCollectionHtmlTransformers } = require('@itrocks/core-transformers')
+const { Component } = require('@itrocks/composition')
+const { MultipleOutput, multipleOutputOf } = require('@itrocks/list/multiple-output')
+const { PropertySelect } = require('@itrocks/property-select')
 const { HTML, OUTPUT, setPropertyTransformer, setPropertyTypeTransformer } = require('@itrocks/transformer')
 const storage = require('@itrocks/storage')
 const original = storage.dataSource
@@ -43,6 +47,101 @@ test('plural, cyclic and undeclared custom representation closures fail before p
 	listRepresentationDependsOn({ fields: () => { throw new Error('Undeclared custom representative fields') } })
 	assert.throws(() => new ListColumn(Invoice, 'city'), /Undeclared/)
 	listRepresentationDependsOn({ fields: undefined })
+})
+
+test('direct plural columns retain comma and component rendering', async () => {
+	initCollectionHtmlTransformers({
+		representativeValueOf: async value => value.name,
+		propertyOutput: async (object, property) => String(object[property] ?? '')
+	})
+	const column = new ListColumn(Invoice, 'cities')
+	assert.equal(column.multiple, true)
+	assert.equal(column.sortable, false)
+	const sortable = new Columns()
+	sortable.unshift(column)
+	const sort = new Sort(sortable)
+	sort.getParams({ data: { sort: 'cities' } }, Invoice)
+	assert.deepEqual(sort.sortOption().properties, [])
+	const cities = [Object.assign(new City(), { name: 'Paris' }), Object.assign(new City(), { name: 'Lyon' })]
+	assert.equal(multipleOutputOf(Invoice, 'cities'), 'commas')
+	assert.equal(await column.output({ kind: 'value', value: cities }), 'Lyon, Paris')
+	Component()(Invoice.prototype, 'cities')
+	assert.equal(multipleOutputOf(Invoice, 'cities'), 'lines')
+	const complex = await column.output({ kind: 'value', value: cities })
+	assert.match(complex, /<table>/)
+	assert.equal((complex.match(/<tr>/g) ?? []).length, 3)
+	Component(false)(Invoice.prototype, 'cities')
+	MultipleOutput('lines')(Invoice.prototype, 'cities')
+	assert.equal(multipleOutputOf(Invoice, 'cities'), 'lines')
+	assert.equal(await column.output({ kind: 'value', value: cities }),
+		'<ul><li>Lyon</li><li>Paris</li></ul>')
+	Component()(Invoice.prototype, 'cities')
+	MultipleOutput('commas')(Invoice.prototype, 'cities')
+	assert.equal(multipleOutputOf(Invoice, 'cities'), 'commas')
+	assert.match(await column.output({ kind: 'value', value: cities }), /Lyon .*Paris /)
+	Component(false)(Invoice.prototype, 'cities')
+})
+
+test('plural cells use the visible projected ids and keep singular columns in place', async () => {
+	const calls = []
+	storage.dataSource = () => ({
+		select: async (_type, selections) => {
+			calls.push(selections)
+			return { rootType: Invoice, columns: [{ path: 'number', kind: 'scalar' }], rows: [
+				{ rootId: 2, cells: [{ kind: 'value', value: 'INV-2' }] },
+				{ rootId: 1, cells: [{ kind: 'value', value: 'INV-1' }] }
+			] }
+		},
+		search: async (_type, _search, options) => {
+			assert.deepEqual(options[0].ids, [2, 1])
+			return [{ id: 1, cities: [{ name: 'Paris' }] }, { id: 2, cities: [{ name: 'Lyon' }] }]
+		}
+	})
+	const columns = [new ListColumn(Invoice, 'cities'), new ListColumn(Invoice, 'number')]
+	const result = await projectColumns(Invoice, columns, {}, [])
+	assert.deepEqual(calls, [['number']])
+	assert.deepEqual(result.rows.map(row => row.cells.map(cell => cell.value)), [
+		[[{ name: 'Lyon' }], 'INV-2'], [[{ name: 'Paris' }], 'INV-1']
+	])
+})
+
+test('property selector admits and sends a direct plural object column', async () => {
+	storage.dataSource = () => ({
+		select: async () => ({ rootType: Invoice, columns: [], rows: [{ rootId: 1, cells: [] }] }),
+		search: async () => [{ id: 1, cities: [Object.assign(new City(), { name: 'Paris' })] }]
+	})
+	const list = new List()
+	list.jsonResponse = (body, status = 200) => ({ body, status })
+	const admitted = await list.html(request({ column: 'cities', validate: '1' }))
+	assert.equal(admitted.status, 200)
+	assert.equal(admitted.body.sortable, false)
+	const selected = []
+	const selector = new PropertySelect({
+		root: 'invoice',
+		metadata: {
+			context: async () => ({ label: 'Invoice', path: '', type: 'Invoice', properties: [
+				{ kind: 'relation', label: 'Cities', name: 'cities', order: 0, path: 'cities',
+					relation: { cardinality: 'one-to-many', id: 'Invoice.cities' }, target: 'City' }
+			] }),
+			resolve: async () => ({ kind: 'relation', label: 'Cities', name: 'cities', order: 0, path: 'cities',
+				relation: { cardinality: 'one-to-many', id: 'Invoice.cities' }, target: 'City' })
+		},
+		consumer: { select: async intent => {
+			selected.push(intent.path)
+			const response = await list.html(request({ column: intent.path, rowIds: '1' }))
+			assert.equal(response.status, 200)
+			assert.deepEqual(response.body.rows, [{ html: 'Paris', id: 1 }])
+			return { id: intent.id, path: intent.path, status: 'added' }
+		} }
+	})
+	const errors = []
+	selector.subscribe(event => { if (event.type === 'error') errors.push(event.error) })
+	await selector.mount()
+	const outcome = await selector.select('cities')
+	assert.deepEqual(errors, [])
+	assert.equal(outcome.status, 'added')
+	assert.deepEqual(selected, ['cities'])
+	selector.dispose()
 })
 
 test('path columns persist, filter both form trees and query keys, and expand representative ordering', () => {

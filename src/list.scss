@@ -153,6 +153,10 @@ table.objects {
 			cursor: pointer;
 		}
 
+		&[data-sortable='false'] {
+			cursor: default;
+		}
+
 		&[data-sort] {
 			padding-right: calc(.6em + 16px);
 			&::after {

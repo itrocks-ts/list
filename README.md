@@ -141,13 +141,31 @@ For `json()`, the scope is passed directly to `dataSource().search()`.
 
 HTML lists, feed pages and visible-column requests use the configured `DataSource.select()` implementation. The JSON
 action retains the full-entity `search()` contract. Mandatory scope overrides user filters and applies to projection,
-visible-id reloads and count. Projection requires a capable adapter and never falls back to entity reads.
+visible-id reloads and count. Singular columns require a capable projection adapter. Direct collection columns load
+their values through the configured entity reader for the projected visible row ids.
 
 Columns are canonical root-relative paths. The list uses public reflection to resolve metadata and supplies each
 projected value to the existing HTML transformer of its final property. Singular object columns request their finite
-representative scalar closure, including nested representative relations. Rendering performs no lazy read. Absent
-relationships render empty cells; ignored scalar conversions render `Unavailable`; missing representative fields fail
-explicitly. Plural or unknown multiplicity is refused before SQL, without changing the selected columns.
+representative scalar closure, including nested representative relations. Singular rendering performs no lazy read.
+Absent relationships render empty cells; ignored scalar conversions render `Unavailable`;
+missing representative fields fail explicitly. Plural paths through a relationship and paths with unknown multiplicity
+are refused before SQL.
+
+Direct collections display representative values separated by commas. A collection decorated with
+[`@Component()`](https://github.com/itrocks-ts/composition) uses its structured table output. The optional
+`@MultipleOutput('commas' | 'lines')` property decorator from `@itrocks/list/multiple-output` overrides this default.
+`'lines'` displays ordinary collections as a list and keeps component collections as a table. `'commas'` displays
+representative values on one line, including for components. `multipleOutputOf(type, property)` returns the effective
+mode and inherits explicit property metadata. For example:
+
+```ts
+import { MultipleOutput } from '@itrocks/list/multiple-output'
+
+class Movie {
+	@MultipleOutput('lines')
+	genres!: Genre[]
+}
+```
 
 `@itrocks/list/projection` exports `ListColumn`, `representationFields` and `listRepresentationDependsOn`. Custom output
 transformations must declare every input through the `fields(type, ancestors, property?)` resolver when their inputs
@@ -202,7 +220,8 @@ paths; only a confirmed new addition feeds the selector's recents. The browser d
 
 The list consumer supplies immediate cells, authorises admission and loads the current visible ids through the same
 projection/rendering route used for click additions. `validate=1` on a `column` request checks representation and
-permission without selecting records; it prevents unsupported object/plural paths from being confirmed on drop.
+permission without selecting records; it prevents unsupported object and nested plural paths from being confirmed
+on drop.
 Admission is independent of the optional values request. A slow or failed values request leaves valid drops accepted;
 failed cells expose `Retry values` without another addition or recent entry.
 

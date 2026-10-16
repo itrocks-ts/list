@@ -25,7 +25,8 @@ export type ListSelectorOptions = {
 	saveColumns(): Promise<void>
 	templateUrl?: string
 }
-type ColumnResponse = { label: string; path: string; rows: { html: string; id: string | number }[] }
+type ColumnResponse = { label: string; path: string; sortable: boolean;
+	rows: { html: string; id: string | number }[] }
 
 export class ListPropertySelect implements ConsumerPort
 {
@@ -84,6 +85,7 @@ export class ListPropertySelect implements ConsumerPort
 		if (ids.some(id => !values.has(id))) throw new Error('The row scope changed; reload the list')
 		const header = document.createElement('th')
 		header.dataset.property = path
+		header.dataset.sortable = String(result.sortable)
 		const label = document.createElement('span')
 		label.className = 'label'
 		label.textContent = result.label
@@ -130,6 +132,7 @@ export class ListPropertySelect implements ConsumerPort
 				create: () => {
 					const header = document.createElement('th')
 					header.dataset.property = path
+					header.dataset.sortable = 'false'
 					header.textContent = path
 					const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
 						const cell = document.createElement('td')

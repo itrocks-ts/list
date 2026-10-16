@@ -10,7 +10,9 @@
 		"@itrocks/build": "latest",
 		"@itrocks/class-type": "latest",
 		"@itrocks/class-view": "latest",
+		"@itrocks/composition": "latest",
 		"@itrocks/core-transformers": "latest",
+		"@itrocks/decorator": "latest",
 		"@itrocks/list-properties": "latest",
 		"@itrocks/property-select": "latest",
 		"@itrocks/property-view": "latest",
@@ -37,6 +39,7 @@
 	},
 	"exports": {
 		".": "./cjs/list.js",
+		"./multiple-output": "./cjs/multiple-output.js",
 		"./projection": "./cjs/projection.js",
 		"./property-select.js": "./property-select.js",
 		"./selector-state": "./cjs/selector-state.js",
@@ -89,5 +92,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.12.1"
+	"version": "0.13.0"
 }

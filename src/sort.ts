@@ -51,7 +51,8 @@ export class Sort<T extends object> extends Parameter
 			}
 		}
 
-		if (typeof request.data.sort === 'string') {
+		if (typeof request.data.sort === 'string'
+			&& !this.columns.properties.some(column => column.name === request.data.sort && column.multiple)) {
 			const reverse = 'reverse' in request.data
 			const sort    = request.data.sort
 			const index   = sortProperties.indexOf(sort)
@@ -74,7 +75,7 @@ export class Sort<T extends object> extends Parameter
 		for (const column of this.columns) {
 			const sortIndex = sortProperties.indexOf(column.name.toString())
 			column.reverse  = !!sortReverse[sortIndex]
-			column.sort     = (sortIndex + 1) || undefined
+			column.sort     = column.multiple ? undefined : (sortIndex + 1) || undefined
 		}
 	}
 
@@ -95,6 +96,7 @@ export class Sort<T extends object> extends Parameter
 		const properties = new Array<PropertyPath>
 		for (const [propertyName, reverse] of Object.entries(this.sorted)) {
 			const column = this.columns.properties.find(column => column.name === propertyName)
+			if (column?.multiple) continue
 			for (const path of column?.sortPaths() ?? [propertyName])
 				properties.push(reverse ? new Reverse(path) : path)
 		}

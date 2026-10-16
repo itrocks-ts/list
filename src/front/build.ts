@@ -64,7 +64,8 @@ build<HTMLTableElement>(
 			const element = event.target
 			if (!(element instanceof HTMLElement) || element.closest('input, button')) return
 			const cell = element.closest('table, th')
-			if (!(cell instanceof HTMLTableCellElement) || !cell.dataset.property) return
+			if (!(cell instanceof HTMLTableCellElement) || !cell.dataset.property
+				|| cell.dataset.sortable === 'false') return
 			const form = cell.closest('form')
 			if (!form) return
 			const reverse = (cell.dataset.sort === '1') ? !cell.dataset.reverse : !!cell.dataset.reverse

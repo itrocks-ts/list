@@ -11,6 +11,7 @@ import { SearchType }       from '@itrocks/storage'
 import { SelectionError }   from '@itrocks/storage'
 import { listAccess }       from './access'
 import { Columns }          from './columns'
+import { projectColumns }    from './columns'
 import { Feed }             from './feed'
 import { Filter }           from './filter'
 import { load }             from './persist'
@@ -70,14 +71,15 @@ export class List<T extends object = object> extends Action<T>
 				await access.authorise(path)
 				const column = new ListColumn(type, path)
 				for (const field of column.fields ?? []) await access.authorise(`${path}.${field}`)
-				if (request.request.data.validate === '1') return this.jsonResponse({ label: column.label, path })
+				if (request.request.data.validate === '1')
+					return this.jsonResponse({ label: column.label, path, sortable: column.sortable })
 				const ids = request.request.data.rowIds
 				if (typeof ids !== 'string') throw new Error('Visible row identities are required')
-				const result = await dataSource().select(type, [column.selection()], search, [new Identifiers(
+				const result = await projectColumns(type, [column], search, [new Identifiers(
 					ids ? ids.split(',') : []
 				)])
 				return this.jsonResponse({
-					label: column.label, path,
+					label: column.label, path, sortable: column.sortable,
 					rows: await Promise.all(result.rows.map(async row => ({
 						id: row.rootId, html: await column.output(row.cells[0])
 					})))
@@ -90,9 +92,7 @@ export class List<T extends object = object> extends Action<T>
 				return this.jsonResponse({ error: message }, 400)
 			}
 		}
-		const objects = await columns.projected(await dataSource().select(
-			type, columns.map(column => column.selection()), search, options
-		))
+		const objects = await columns.projected(await projectColumns(type, [...columns], search, options))
 
 		if (feed.offset) {
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)
