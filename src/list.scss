@@ -226,6 +226,7 @@ table.objects {
 main > article[data-action="list"] > header > .add-column {
 	background: white;
 	border: 0;
+	border-bottom: 1px solid #ccc;
 	border-left: 1px solid #ccc;
 	border-radius: 0;
 	bottom: 0;
@@ -235,6 +236,10 @@ main > article[data-action="list"] > header > .add-column {
 	right: 0;
 	top: 0;
 	width: 44px;
+
+	&:hover {
+		background-color: #f4f4f4;
+	}
 }
 
 table.objects > thead > tr.properties > th {
