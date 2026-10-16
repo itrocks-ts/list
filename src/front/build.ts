@@ -15,7 +15,9 @@ build<HTMLTableElement>(
 	table => {
 		let saving = Promise.resolve()
 		const saveColumns = (): Promise<void> => {
-			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(':scope > th[data-property]')
+			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(
+				':scope > th[data-property]:not(.column-add-provisional)'
+			)
 			const form    = table.closest('form')
 			if (!columns || !form) return Promise.resolve()
 			const properties = Array.from(columns, column => encodeURIComponent(column.dataset.property ?? ''))

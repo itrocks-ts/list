@@ -173,7 +173,8 @@ addition, column persistence and narrow pane ports. The framework mounts it only
 navigation. It reserves pending paths, confirms accepted additions, reveals/highlights duplicates without moving focus,
 and checks row identity before insertion. Failed selection leaves the context intact. It loads only currently visible
 row ids; changing the row view while loading rejects the obsolete response with a retry message. Click requests await
-their data before committing a new column; external drag previews belong to the later drag API. The header contains each
+their data before committing a new column. Desktop drags create immediate placeholder columns through the public
+table external transaction. The header contains each
 label and its filter together, so it uses the table addition plugin's single-header contract.
 
 `npm test` runs the server contracts; `test/property-select.test.mjs` covers projection, representation, scope, path
@@ -196,3 +197,16 @@ it prevents a mounted selector from writing its old state into a new session.
 The public browser `@itrocks/list/selector-state.js` exports `HttpStateStore`, using same-origin credentials and
 no-store requests. `ListSelectorOptions.advice` supplies configured destinations. List column changes refresh used
 paths; only a confirmed new addition feeds the selector's recents. The browser displays recoverable persistence errors.
+
+## External column transport
+
+The list consumer supplies immediate cells, authorises admission and loads the current visible ids through the same
+projection/rendering route used for click additions. `validate=1` on a `column` request checks representation and
+permission without selecting records; it prevents unsupported object/plural paths from being confirmed on drop.
+Admission is independent of the optional values request. A slow or failed values request leaves valid drops accepted;
+failed cells expose `Retry values` without another addition or recent entry.
+
+Pending paths and the active drag are reserved before asynchronous work. Used paths retain their committed order
+throughout the drag, and configuration saves exclude provisional cells. New accepted drops feed recents; moves and
+cancellations do not. Row-view changes and view disposal cancel transport. The desktop pane stays open, and capture is
+owned by the selector's surviving source controller. The consumer imports no home implementation, SQL or hydration code.

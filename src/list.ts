@@ -70,6 +70,7 @@ export class List<T extends object = object> extends Action<T>
 				await access.authorise(path)
 				const column = new ListColumn(type, path)
 				for (const field of column.fields ?? []) await access.authorise(`${path}.${field}`)
+				if (request.request.data.validate === '1') return this.jsonResponse({ label: column.label, path })
 				const ids = request.request.data.rowIds
 				if (typeof ids !== 'string') throw new Error('Visible row identities are required')
 				const result = await dataSource().select(type, [column.selection()], search, [new Identifiers(

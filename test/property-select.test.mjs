@@ -126,3 +126,25 @@ test('undeclared object transformers fail before querying; declared fields are a
 	assert.throws(() => new ListColumn(Invoice, 'cityOther'), /Undeclared custom object representation/)
 	setPropertyTypeTransformer(City, HTML, OUTPUT, storeOutput)
 })
+
+test('external admission validates representation and authorisation without loading rows', async () => {
+	storage.dataSource = () => ({
+		select: () => assert.fail('Admission must not query values'),
+		count: () => assert.fail('Admission must not count')
+	})
+	const authorised = []
+	listDependsOn({ access: async () => ({ authorise: async path => { authorised.push(path) } }) })
+	try {
+		const list = new List()
+		list.jsonResponse = (body, status = 200) => ({ body, status })
+		const response = await list.html(request({ column: 'city', validate: '1' }))
+		assert.equal(response.status, 200)
+		assert.equal(response.body.path, 'city')
+		assert.equal(response.body.rows, undefined)
+		assert.ok(['city', 'city.name', 'city.country.name'].every(path => authorised.includes(path)))
+		const refused = await list.html(request({ column: 'cities.name', validate: '1' }))
+		assert.equal(refused.status, 400)
+		assert.match(refused.body.error, /multiple values/)
+	}
+	finally { listDependsOn({ access: async () => ({ authorise: async () => {} }) }) }
+})
