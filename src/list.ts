@@ -1,24 +1,25 @@
-import { Action }           from '@itrocks/action'
-import { ActionEntry }      from '@itrocks/action'
-import { getActions }       from '@itrocks/action'
-import { Need }             from '@itrocks/action'
-import { Request }          from '@itrocks/action-request'
-import { Route }            from '@itrocks/route'
-import { routeOf }          from '@itrocks/route'
-import { dataSource }       from '@itrocks/storage'
-import { Identifiers }      from '@itrocks/storage'
-import { SearchType }       from '@itrocks/storage'
-import { SelectionError }   from '@itrocks/storage'
-import { listAccess }       from './access'
-import { Columns }          from './columns'
-import { projectColumns }    from './columns'
-import { Feed }             from './feed'
-import { Filter }           from './filter'
-import { load }             from './persist'
-import { save }             from './persist'
-import { ListColumn }       from './projection'
-import { selectorStateKey } from './selector-state'
-import { Sort }             from './sort'
+import { Action }                 from '@itrocks/action'
+import { ActionEntry }            from '@itrocks/action'
+import { Need }                   from '@itrocks/action'
+import { getActions }             from '@itrocks/action'
+import { Request }                from '@itrocks/action-request'
+import { Route }                  from '@itrocks/route'
+import { routeOf }                from '@itrocks/route'
+import { Identifiers }            from '@itrocks/storage'
+import { SearchType }             from '@itrocks/storage'
+import { SelectionError }         from '@itrocks/storage'
+import { dataSource }             from '@itrocks/storage'
+import { listAccess }             from './access'
+import { Columns }                from './columns'
+import { projectColumns }         from './columns'
+import { Feed }                   from './feed'
+import { Filter }                 from './filter'
+import { load }                   from './persist'
+import { save }                   from './persist'
+import { ListColumn }             from './projection'
+import { selectorStateBootstrap } from './selector-state'
+import { selectorStateKey }       from './selector-state'
+import { Sort }                   from './sort'
 
 export { listDependsOn } from './access'
 export type { ListAccess, ListDependencies } from './access'
@@ -108,9 +109,15 @@ export class List<T extends object = object> extends Action<T>
 			actions.push(action)
 		}
 
+		let selectorBootstrap: string | undefined
+		if (access.bootstrap) {
+			const state = await selectorStateBootstrap(request)
+			const metadata = await access.bootstrap([...columns].map(column => column.name), state.record)
+			selectorBootstrap = encodeURIComponent(JSON.stringify({ ...state, ...metadata }))
+		}
 		return this.htmlTemplateResponse(
 			{ columns, count, generalActions, objects, root: access.root, search: filter.search,
-				selectionActions, selectorKey: selectorStateKey(request), type },
+				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type },
 			request,
 			__dirname + '/list.html'
 		)

@@ -1,14 +1,16 @@
-import { PropertySelectView }      from '@itrocks/property-select/front/property-select.js'
-import type { ConsumerPort }       from '@itrocks/property-select/property-select.js'
-import type { MetadataProvider }   from '@itrocks/property-select/property-select.js'
-import { normalisePath }           from '@itrocks/property-select/property-select.js'
-import type { PointerSample }      from '@itrocks/property-select/property-select.js'
-import type { Outcome }            from '@itrocks/property-select/property-select.js'
-import type { SelectionIntent }    from '@itrocks/property-select/property-select.js'
-import type { ColumnContent }      from '@itrocks/table/column-add.js'
-import type { ColumnOperation }    from '@itrocks/table/column-add.js'
-import { TableColumnAdd }          from '@itrocks/table/column-add.js'
-import { HttpStateStore }          from './selector-state.js'
+import { PropertySelectView }    from '@itrocks/property-select/front/property-select.js'
+import type { ConsumerPort }     from '@itrocks/property-select/property-select.js'
+import type { MetadataProvider } from '@itrocks/property-select/property-select.js'
+import type { Outcome }          from '@itrocks/property-select/property-select.js'
+import type { PointerSample }    from '@itrocks/property-select/property-select.js'
+import type { SelectionIntent }  from '@itrocks/property-select/property-select.js'
+import type { StateRecord }      from '@itrocks/property-select/property-select.js'
+import { normalisePath }         from '@itrocks/property-select/property-select.js'
+import type { ColumnContent }    from '@itrocks/table/column-add.js'
+import type { ColumnOperation }  from '@itrocks/table/column-add.js'
+import type { ColumnSource }     from '@itrocks/table/column-add.js'
+import { TableColumnAdd }        from '@itrocks/table/column-add.js'
+import { HttpStateStore }        from './selector-state.js'
 
 export type PaneHandle = {
 	close(): void
@@ -35,6 +37,7 @@ export class ListPropertySelect implements ConsumerPort
 	private readonly button: HTMLButtonElement
 	private disposed = false
 	private drag?: {
+		drop(): void
 		intent: SelectionIntent
 		operation: ColumnOperation
 		paths: string[]
@@ -50,11 +53,17 @@ export class ListPropertySelect implements ConsumerPort
 		const content = document.createElement('div')
 		this.button = article.querySelector<HTMLButtonElement>('.add-column')!
 		this.pane = options.mountSelector(content, 'Add columns')
+		const initial = article.dataset.selectorBootstrap
+			? JSON.parse(decodeURIComponent(article.dataset.selectorBootstrap)) as {
+				generation: string; record: StateRecord; template: string
+			} : undefined
 		this.view = new PropertySelectView(content, {
 			consumer: this, metadata: options.metadata, root: article.dataset.propertyRoot!,
 			advice: options.advice, stateKey: article.dataset.selectorKey!, stateMode: 'session',
-			stateStore: new HttpStateStore(), usedPaths: this.paths()
-		}, { templateUrl: options.templateUrl })
+			stateStore: new HttpStateStore(undefined, undefined, initial && {
+				...initial, key: article.dataset.selectorKey!
+			}), usedPaths: this.paths()
+		}, { template: initial?.template, templateUrl: options.templateUrl })
 		this.observer = new MutationObserver(records => {
 			if (this.drag && records.some(record => (record.target as Element).tagName === 'TBODY'))
 				this.view.selector.cancel(this.drag.intent.id, 'row view changed')
@@ -101,11 +110,21 @@ export class ListPropertySelect implements ConsumerPort
 
 	private async add(path: string, signal: AbortSignal): Promise<'added' | 'existing'>
 	{
-		const content = await this.loadColumn(path, signal)
-		const outcome = await this.options.addition.add({ create: () => content, id: path })
-		await this.options.saveColumns()
-		this.view.selector.setConfiguration({ usedPaths: this.paths() })
-		return outcome
+		const source = this.columnSource(path)
+		const operation = this.options.addition.begin(source)
+		try {
+			await this.validateColumn(path, signal)
+			signal.throwIfAborted()
+			if (this.disposed) throw new Error('List disposed')
+			const outcome = operation.commit()
+			await this.options.saveColumns()
+			this.view.selector.setConfiguration({ usedPaths: this.paths() })
+			return outcome
+		}
+		catch (error) {
+			operation.cancel()
+			throw error
+		}
 	}
 
 	begin(intent: SelectionIntent, sample: PointerSample): void
@@ -113,52 +132,63 @@ export class ListPropertySelect implements ConsumerPort
 		if (this.disposed || this.drag || this.pending.size) throw new Error('A column operation is pending')
 		const path = normalisePath(intent.path)
 		const paths = this.paths()
-		const result = this.view.selector.search.results.find(result => result.property.path === path)
-		const property = result?.property || this.view.selector.context?.properties.find(property => property.path === path)
-		const label = result ? [...result.segments.map(segment => segment.label), result.property.label].join('.')
-			: property?.label || path
 		const suspension = this.pane.suspend({ mobileOnly: true })
 		try {
-			let provisionalHeader: HTMLTableCellElement | undefined
-			const operation = this.options.addition.beginExternal({
-				id: path,
-				accept: async signal => {
-					const form = this.article.querySelector<HTMLFormElement>('form')!
-					const query = new URLSearchParams({ column: path, validate: '1' })
-					const response = await fetch(`${form.action}?${query}`, {
-						signal: AbortSignal.any([signal, this.abort.signal])
-					})
-					const result = await response.json() as { label?: string; path?: string; error?: string }
-					if (!response.ok || result.path !== path) throw new Error(result.error ?? 'Column unavailable')
-					if (provisionalHeader?.isConnected && result.label) provisionalHeader.textContent = result.label
-				},
-				create: () => {
-					const header = document.createElement('th')
-					provisionalHeader = header
-					header.dataset.property = path
-					header.dataset.sortable = 'false'
-					header.textContent = label
-					const cells = [...this.article.querySelectorAll('table.objects tbody tr')].map(() => {
-						const cell = document.createElement('td')
-						cell.textContent = 'Loading…'
-						return cell
-					})
-					return { cells, header }
-				},
-				load: async signal => {
-					try { return await this.loadColumn(path, signal) }
-					catch (error) {
-						if (!this.disposed && !signal.aborted) this.previewError(path)
-						throw error
-					}
-				}
-			}, sample)
-			this.drag = { intent, operation, paths, restore: () => suspension.restore() }
+			let drop!: () => void
+			const dropped = new Promise<void>(resolve => { drop = resolve })
+			const source = this.columnSource(path)
+			// Existing columns already have their metadata and cells. Only new drops need admission.
+			if (!paths.includes(path)) source.accept = async signal => {
+				await dropped
+				signal.throwIfAborted()
+				await this.validateColumn(path, signal)
+			}
+			const operation = this.options.addition.beginExternal(source, sample)
+			this.drag = { drop, intent, operation, paths, restore: () => suspension.restore() }
 		}
 		catch (error) {
 			suspension.restore()
 			throw error
 		}
+	}
+
+	private columnSource(path: string): ColumnSource
+	{
+		const result = this.view.selector.search.results.find(result => result.property.path === path)
+		const property = result?.property || this.view.selector.context?.properties.find(property => property.path === path)
+		const label = result ? [...result.segments.map(segment => segment.label), result.property.label].join('.')
+			: property?.label || path
+		return {
+			id: path,
+			create: () => {
+				const header = document.createElement('th')
+				header.dataset.property = path
+				header.dataset.sortable = 'false'
+				header.textContent = label
+				const cells = [...this.article.querySelectorAll('table.objects tbody tr')]
+					.map(() => document.createElement('td'))
+				return { cells, header }
+			},
+			load: async signal => {
+				signal.throwIfAborted()
+				try { return await this.loadColumn(path, signal) }
+				catch (error) {
+					if (!this.disposed && !signal.aborted) this.previewError(path)
+					throw error
+				}
+			}
+		}
+	}
+
+	private async validateColumn(path: string, signal: AbortSignal): Promise<void>
+	{
+		const form = this.article.querySelector<HTMLFormElement>('form')!
+		const query = new URLSearchParams({ column: path, validate: '1' })
+		const response = await fetch(`${form.action}?${query}`, {
+			signal: AbortSignal.any([signal, this.abort.signal])
+		})
+		const result = await response.json() as { path?: string; error?: string }
+		if (!response.ok || result.path !== path) throw new Error(result.error ?? 'Column unavailable')
 	}
 
 	cancel(id: string): void
@@ -209,7 +239,9 @@ export class ListPropertySelect implements ConsumerPort
 		const drag = this.drag
 		if (!drag || drag.intent.id !== id) throw new Error('Unknown column transport')
 		try {
-			const status = await drag.operation.finish(sample)
+			const finished = drag.operation.finish(sample)
+			drag.drop()
+			const status = await finished
 			if (status !== 'cancelled') await this.options.saveColumns()
 			if (this.disposed) return { ...drag.intent, status: 'cancelled' }
 			if (this.drag === drag) this.drag = undefined

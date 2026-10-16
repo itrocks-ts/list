@@ -19,6 +19,7 @@ function fixture()
 	const finish = deferred(), save = deferred(), events = []
 	let restored = false
 	const drag = {
+		drop: () => {},
 		intent: { id: 'drag', path: 'city', root: 'invoice' }, paths: ['number'],
 		operation: { cancel: () => { events.push('cancel'); finish.resolve('cancelled') }, finish: () => finish.promise },
 		restore: () => { if (!restored) { restored = true; events.push('restore') } }
@@ -107,4 +108,50 @@ test('a dropped nested property uses its translated path in the provisional head
 		assert.equal(label, 'ville.pays.nom')
 	}
 	finally { globalThis.document = document }
+})
+
+test('click inserts a placeholder and starts values without waiting for admission or saving', async () => {
+	const f = fixture(), admission = deferred(), values = deferred()
+	let source, loading
+	f.consumer.drag = undefined
+	f.consumer.validateColumn = () => admission.promise
+	f.consumer.loadColumn = () => { f.events.push('values'); return values.promise }
+	f.consumer.options.addition = { begin: value => {
+		source = value
+		f.events.push('placeholder')
+		loading = source.load(new AbortController().signal)
+		return { commit: () => { f.events.push('commit'); return 'added' }, cancel: () => f.events.push('cancel') }
+	} }
+	const result = f.consumer.add('city', new AbortController().signal)
+	assert.deepEqual(f.events, ['placeholder', 'values'])
+	admission.resolve()
+	await Promise.resolve()
+	assert.deepEqual(f.events, ['placeholder', 'values', 'commit', 'save'])
+	f.save.resolve()
+	assert.equal(await result, 'added')
+	assert.ok(f.events.includes('values'))
+	values.resolve({ cells: [], header: {} })
+	await loading
+})
+
+test('external moves skip admission and new drags load values before drop', async () => {
+	const f = fixture()
+	f.consumer.drag = undefined
+	f.consumer.pane = { suspend: () => ({ restore: () => {} }) }
+	let source
+	f.consumer.options.addition = { beginExternal: value => {
+		source = value
+		return { cancel: () => {} }
+	} }
+	f.consumer.begin({ ...f.drag.intent, path: 'number' }, {})
+	assert.equal(source.accept, undefined)
+	f.consumer.cancel('drag')
+	let loaded = false
+	f.consumer.loadColumn = async () => { loaded = true; return { cells: [], header: {} } }
+	f.consumer.validateColumn = () => assert.fail('Admission must wait for the drop')
+	f.consumer.begin({ ...f.drag.intent, path: 'new' }, {})
+	void source.accept(new AbortController().signal)
+	await source.load(new AbortController().signal)
+	assert.equal(loaded, true)
+	f.consumer.cancel('drag')
 })

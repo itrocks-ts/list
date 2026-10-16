@@ -191,10 +191,12 @@ The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect
 addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
 navigation. It reserves pending paths, confirms accepted additions, reveals/highlights duplicates without moving focus,
 and checks row identity before insertion. Failed selection leaves the context intact. It loads only currently visible
-row ids; changing the row view while loading rejects the obsolete response with a retry message. Click requests await
-their data before committing a new column. Desktop drags create immediate placeholder columns through the public
-table external transaction. The header contains each
-label and its filter together, so it uses the table addition plugin's single-header contract.
+row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
+retry message. Clicks and desktop drags create empty columns and immediately load values asynchronously through the
+public table transaction. A new dragged column stays hidden until the pointer first enters the table, so its values can
+arrive before it appears. Drag admission waits for drop.
+Existing-column moves and removals only save the column configuration. The header contains each label and its filter
+together, so it uses the table addition plugin's single-header contract.
 
 `npm test` runs the server contracts; `test/property-select.test.mjs` covers projection, representation, scope, path
 configuration, filters and ordering. Real framework/browser proof is tracked by the property-select L2-LIST delivery.
@@ -213,15 +215,21 @@ do not affect it. The rendered article supplies this opaque key to the browser. 
 Writes echo the opaque `X-Property-Select-Session` token returned by a read. It cannot identify or authenticate a user;
 it prevents a mounted selector from writing its old state into a new session.
 
+The initial HTML response carries the configured selector bootstrap, including metadata, template, state revision
+and session generation. Mounting consumes this snapshot without application requests or state writes. Metadata is
+shared by navigation, suggestions and selection; unchanged column paths do not rebuild suggestions.
+
 The public browser `@itrocks/list/selector-state.js` exports `HttpStateStore`, using same-origin credentials and
-no-store requests. `ListSelectorOptions.advice` supplies configured destinations. List column changes refresh used
-paths; only a confirmed new addition feeds the selector's recents. The browser displays recoverable persistence errors.
+no-store requests. Its optional third constructor argument `{ generation, key, record }` supplies the initial read;
+subsequent reads, including conflict recovery, use the server. `ListSelectorOptions.advice` supplies configured
+destinations. List column changes refresh used paths; only a confirmed new addition feeds the selector's recents.
+The browser displays recoverable persistence errors.
 
 ## External column transport
 
-The list consumer supplies immediate cells, authorises admission and loads the current visible ids through the same
-projection/rendering route used for click additions. `validate=1` on a `column` request checks representation and
-permission without selecting records; it prevents unsupported object and nested plural paths from being confirmed
+The list consumer supplies immediate empty cells, authorises admission and loads all currently loaded row ids through
+the same projection/rendering route used for click additions. `validate=1` on a `column` request checks representation
+and permission without selecting records; it prevents unsupported object and nested plural paths from being confirmed
 on drop.
 Admission is independent of the optional values request. A slow or failed values request leaves valid drops accepted;
 failed cells expose `Retry values` without another addition or recent entry.
@@ -235,3 +243,8 @@ The consumer requests `pane.suspend({ mobileOnly: true })` only when a source ge
 host owns its responsive breakpoint. The token is restored after acceptance and column persistence, or after
 cancellation/rejection; it never focuses the search field. View disposal removes the registration and invalidates late
 restoration. Custom pane adapters may implement the same optional suspension argument without importing `home`.
+
+`node test/browser-requests.mjs` checks request counts and real mouse gestures in Chromium with synthetic HTTP data.
+It covers initial mount, click placeholders, hidden drag preloading, reveal on table entry, values for 80 loaded rows,
+outside cancellation, duplicates, reordering and removal.
+Set `PS_PLAYWRIGHT_MODULE` to an installed Playwright module when using a different runtime.

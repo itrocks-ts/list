@@ -198,3 +198,30 @@ function listDouble({ filter = {}, offset = 0 } = {})
 
 	return { calls, list }
 }
+
+test('initial HTML embeds the session bootstrap; feed and configuration saves do not rebuild it', async () => {
+	const { listDependsOn } = require('@itrocks/list')
+	const { listStateDependsOn } = require('@itrocks/list/selector-state')
+	const session = { propertySelect: { '/entry/list': { revision: 5 } } }
+	let bootstraps = 0
+	listStateDependsOn({ transaction: async (_session, operation) => operation(session) })
+	listDependsOn({ access: async () => ({
+		authorise: async () => {}, root: '/entry', bootstrap: async (_paths, record) => {
+			bootstraps ++
+			assert.equal(record.revision, 5)
+			return { template: '<section title="A & B">', contexts: [] }
+		}
+	}) })
+	try {
+		const response = await listDouble().list.html(actionRequest())
+		const initial = JSON.parse(decodeURIComponent(response.data.selectorBootstrap))
+		assert.equal(initial.generation, session.propertySelectGeneration)
+		assert.equal(initial.record.revision, 5)
+		assert.equal(initial.template, '<section title="A & B">')
+		assert.ok(!response.data.selectorBootstrap.includes('"'))
+		await listDouble({ offset: 50 }).list.html(actionRequest({ offset: '50' }))
+		await listDouble().list.html(actionRequest({ columns: '' }))
+		assert.equal(bootstraps, 1)
+	}
+	finally { listDependsOn({ access: async () => ({ authorise: async () => {} }) }) }
+})

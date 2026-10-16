@@ -1,7 +1,9 @@
-import { Request } from '@itrocks/action-request'
+import { Request }          from '@itrocks/action-request'
+import type { StateRecord } from '@itrocks/property-select'
 
 export type ListAccess = {
 	authorise(path: string): Promise<void>
+	bootstrap?(paths: string[], state: StateRecord): Promise<object>
 	root?: string
 }
 export type ListDependencies = { access: (request: Request) => Promise<ListAccess> }

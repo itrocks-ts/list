@@ -11,13 +11,21 @@ export class HttpStateStore implements StateStore
 
 	constructor(
 		private readonly endpoint = '/property-select/state/json',
-		private readonly fetcher = globalThis.fetch.bind(globalThis)
+		private readonly fetcher = globalThis.fetch.bind(globalThis),
+		private initial?: { generation: string; key: string; record: StateRecord }
 	)
 	{
 	}
 
 	read(key: string, signal?: AbortSignal): Promise<StateRecord>
 	{
+		if (this.initial?.key === key) {
+			signal?.throwIfAborted()
+			const initial = this.initial
+			this.initial = undefined
+			this.generation = initial.generation
+			return Promise.resolve(structuredClone(initial.record))
+		}
 		return this.request('GET', key, undefined, undefined, signal)
 	}
 

@@ -25,6 +25,17 @@ export function selectorStateKey(request: Request): string
 	return request.route + (request.ids.length ? '/' + request.ids.join(',') : '') + '/' + request.action
 }
 
+export function selectorStateBootstrap(request: Request): Promise<{ generation: string; record: StateRecord }>
+{
+	return transaction(request.request.session, data => {
+		data.propertySelectGeneration ??= randomUUID()
+		return {
+			generation: data.propertySelectGeneration,
+			record: structuredClone(data.propertySelect?.[selectorStateKey(request)] ?? { revision: 0 })
+		}
+	})
+}
+
 export class SessionStateStore
 {
 

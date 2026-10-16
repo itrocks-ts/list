@@ -60,3 +60,21 @@ test('public browser transport carries credentials, revisions and a session gene
 	generation = 'new-session'
 	await assert.rejects(transport.read('/invoices/list'), /session has ended/)
 })
+
+test('embedded state skips the first HTTP read and preserves session checks and conflict rereads', async () => {
+	const { HttpStateStore } = await import('@itrocks/list/selector-state.js')
+	const calls = []
+	const transport = new HttpStateStore('/state', async (url, options) => {
+		calls.push({ url, options })
+		return new Response(JSON.stringify({ revision: 4, state }), {
+			headers: { 'X-Property-Select-Session': 'embedded-session' }
+		})
+	}, { generation: 'embedded-session', key: '/invoices/list', record: { revision: 3, state } })
+	assert.deepEqual(await transport.read('/invoices/list'), { revision: 3, state })
+	assert.equal(calls.length, 0)
+	await transport.write('/invoices/list', state, 3)
+	assert.equal(calls[0].options.headers['X-Property-Select-Session'], 'embedded-session')
+	assert.equal(JSON.parse(calls[0].options.body).revision, 3)
+	assert.equal((await transport.read('/invoices/list')).revision, 4)
+	assert.equal(calls[1].options.method, 'GET')
+})
