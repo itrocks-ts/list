@@ -174,9 +174,12 @@ try {
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), false)
 	assert.equal(await page.locator('th[data-property="note"]').evaluate(header =>
 		header.classList.contains('column-add-highlight') || header.classList.contains('column-add-opening')), false)
-	const amount = await page.locator('th[data-property="amount"]').boundingBox()
-	await page.mouse.move(amount.x + amount.width - 5, amount.y + 15, { steps: 10 })
+	// Enter beyond the existing cells so this scenario keeps the newly appended position.
+	const viewport = await page.locator('table').boundingBox()
+	await page.mouse.move(viewport.x + viewport.width - 5, viewport.y + 15, { steps: 10 })
 	await page.locator('th[data-property="note"]').waitFor({ state: 'visible' })
+	const note = await page.locator('th[data-property="note"]').boundingBox()
+	await page.mouse.move(note.x + note.width / 2, note.y + 15, { steps: 10 })
 	const indicator = await page.locator('th[data-property="note"]').evaluate(header => ({
 		adding: header.classList.contains('adding'), moving: header.classList.contains('moving'),
 		mask: getComputedStyle(header, '::before').maskImage,
@@ -186,8 +189,6 @@ try {
 	assert.equal(indicator.moving, false)
 	assert.ok(indicator.mask.includes('column-add.svg'), JSON.stringify(indicator))
 	assert.equal(indicator.color, 'rgb(47, 137, 67)')
-	const note = await page.locator('th[data-property="note"]').boundingBox()
-	await page.mouse.move(note.x + note.width / 2, note.y + 15, { steps: 10 })
 	await page.mouse.up()
 	await page.waitForTimeout(150)
 	assert.equal(requests.filter(url => url.startsWith('/fixture/list?')).length, 1,
