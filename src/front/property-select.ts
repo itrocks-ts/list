@@ -46,6 +46,7 @@ export class ListPropertySelect implements ConsumerPort
 	private readonly observer: MutationObserver
 	private readonly pane: PaneHandle
 	private readonly pending = new Map<string, Promise<'added' | 'existing' | 'removed'>>()
+	private readonly removals = new Map<string, AbortController>()
 	private removedColumns = new Map<string, { left?: string; right?: string }>()
 	private readonly unsubscribePane: () => void
 	readonly view: PropertySelectView
@@ -255,6 +256,8 @@ export class ListPropertySelect implements ConsumerPort
 		this.options.addition.dispose()
 		this.button.hidden = true
 		this.pending.clear()
+		for (const removal of this.removals.values()) removal.abort()
+		this.removals.clear()
 	}
 
 	async end(id: string, sample: PointerSample): Promise<Outcome>
@@ -300,19 +303,33 @@ export class ListPropertySelect implements ConsumerPort
 		if (this.drag) return [...this.drag.paths]
 		return [...this.article.querySelectorAll<HTMLElement>('thead [data-property]:not(.column-add-provisional)')]
 			.map(header => header.dataset.property!)
+			.filter(path => !this.removals.has(path) || this.removals.get(path)!.signal.aborted)
 	}
 
-	private async remove(path: string, signal: AbortSignal): Promise<'removed'>
+	private async remove(path: string, signal: AbortSignal): Promise<'existing' | 'removed'>
 	{
 		const positions = this.removedColumns
 		const paths = this.paths()
 		const index = paths.indexOf(path)
 		const position = { left: paths[index - 1], right: paths[index + 1] }
-		if (!await this.options.addition.remove(path, signal)) throw new Error('Column removal cancelled')
-		if (!this.disposed && positions === this.removedColumns && index >= 0) positions.set(path, position)
-		await this.options.saveColumns()
+		const removal = new AbortController()
+		this.removals.set(path, removal)
+		// Publish the unchecked state before starting the table's removal flash.
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
-		return 'removed'
+		try {
+			const removed = await this.options.addition.remove(path, AbortSignal.any([signal, removal.signal]))
+			if (!removed) {
+				if (removal.signal.aborted && !signal.aborted && !this.disposed) return 'existing'
+				throw new Error('Column removal cancelled')
+			}
+			if (!this.disposed && positions === this.removedColumns && index >= 0) positions.set(path, position)
+			await this.options.saveColumns()
+			return 'removed'
+		}
+		finally {
+			if (this.removals.get(path) === removal) this.removals.delete(path)
+			if (!this.disposed) this.view.selector.setConfiguration({ usedPaths: this.paths() })
+		}
 	}
 
 	async select(intent: SelectionIntent, signal: AbortSignal): Promise<Outcome>
@@ -323,7 +340,17 @@ export class ListPropertySelect implements ConsumerPort
 			let status: 'added' | 'existing' | 'removed'
 			const pending = this.pending.get(path)
 			if (pending) {
-				await pending
+				const removal = this.removals.get(path)
+				if (removal && !removal.signal.aborted) {
+					removal.abort()
+					this.view.selector.setConfiguration({ usedPaths: this.paths() })
+				}
+				else if (removal && intent.action !== 'add') {
+					await pending
+					return this.select(intent, signal)
+				}
+				const outcome = await pending
+				if (removal && outcome === 'removed') return this.select({ ...intent, action: 'add' }, signal)
 				status = 'existing'
 			}
 			else {

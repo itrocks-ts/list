@@ -28,7 +28,7 @@ function fixture()
 		article: { querySelectorAll: () => [{ dataset: { property: 'number' } }, { dataset: { property: 'city' } }] },
 		disposed: false, drag,
 		options: { saveColumns: () => { events.push('save'); return save.promise } },
-		pending: new Map(), removedColumns: new Map(), view: { selector: {
+		pending: new Map(), removals: new Map(), removedColumns: new Map(), view: { selector: {
 			search: { results: [] }, setConfiguration: () => events.push('configuration')
 		} }
 	})
@@ -158,7 +158,7 @@ test('external moves skip admission and new drags load values before drop', asyn
 
 
 for (const kind of ['relation', 'terminal'])
-test(`select toggles existing ${kind} columns once while repeated clicks share removal`, async () => {
+test(`select toggles existing ${kind} columns after publishing the unchecked state`, async () => {
 	const f = fixture(), removal = deferred(), signal = new AbortController().signal
 	f.consumer.drag = undefined
 	f.consumer.view.selector.context = { properties: [{ kind, path: 'city' }] }
@@ -170,15 +170,14 @@ test(`select toggles existing ${kind} columns once while repeated clicks share r
 	}
 	const intent = { id: 'click', path: 'city', root: 'invoice' }
 	const first = f.consumer.select(intent, signal)
-	const repeated = f.consumer.select({ ...intent, id: 'repeat' }, signal)
-	assert.deepEqual(f.events, ['remove'])
+	assert.deepEqual(f.events, ['configuration', 'remove'])
+	assert.deepEqual(f.consumer.paths(), ['number'])
 	f.consumer.article.querySelectorAll = () => [{ dataset: { property: 'number' } }]
 	removal.resolve(true)
 	await Promise.resolve()
 	f.save.resolve()
 	assert.equal((await first).status, 'removed')
-	assert.equal((await repeated).status, 'existing')
-	assert.deepEqual(f.events, ['remove', 'save', 'configuration'])
+	assert.deepEqual(f.events, ['configuration', 'remove', 'save', 'configuration'])
 })
 
 test('plus keeps existing terminal columns and reveals them without saving or removing', async () => {
@@ -221,7 +220,8 @@ test('cancelled removal reports a recoverable failure without saving columns', a
 	const outcome = await f.consumer.select({ id: 'click', path: 'city', root: 'invoice' }, signal)
 	assert.equal(outcome.status, 'rejected')
 	assert.match(outcome.message, /cancelled/)
-	assert.deepEqual(f.events, [])
+	assert.deepEqual(f.events, ['configuration', 'configuration'])
+	assert.deepEqual(f.consumer.paths(), ['number', 'city'])
 	assert.equal(f.consumer.pending.size, 0)
 })
 
@@ -280,4 +280,76 @@ test('failed admission retains the remembered neighbours for a later retry', asy
 	await assert.rejects(f.consumer.add('amount', new AbortController().signal), /Admission refused/)
 	assert.deepEqual(f.events, ['cancel'])
 	assert.deepEqual(f.consumer.removedColumns.get('amount'), position)
+})
+
+for (const kind of ['relation', 'terminal']) {
+	test(`rechecking ${kind} during its flash cancels removal without saving`, async () => {
+		const f = fixture(), signal = new AbortController().signal, configurations = []
+		f.consumer.drag = undefined
+		f.consumer.view.selector.setConfiguration = configuration => configurations.push(configuration.usedPaths)
+		f.consumer.options.addition = {
+			remove: (_path, abort) => new Promise(resolve => {
+				f.events.push('red')
+				abort.addEventListener('abort', () => { f.events.push('cancel'); resolve(false) })
+			}),
+			reveal: () => {}, highlight: () => f.events.push('green')
+		}
+		const intent = { id: 'uncheck', path: 'city', root: 'invoice' }
+		const first = f.consumer.select(intent, signal)
+		assert.deepEqual(configurations, [['number']])
+		const second = f.consumer.select({ ...intent, id: 'recheck' }, signal)
+		assert.deepEqual(configurations.at(-1), ['number', 'city'])
+		assert.equal((await first).status, 'existing')
+		assert.equal((await second).status, 'existing')
+		assert.deepEqual(f.events, ['red', 'cancel', 'green', 'green'])
+		assert.equal(f.consumer.removedColumns.size, 0)
+		assert.equal(f.consumer.pending.size, 0)
+		assert.equal(f.consumer.removals.size, 0)
+	})
+}
+
+test('a third rapid toggle starts a new removal after cancelling the first one', async () => {
+	const f = fixture(), finalRemoval = deferred(), signal = new AbortController().signal
+	f.consumer.drag = undefined
+	let calls = 0
+	f.consumer.options.addition = {
+		remove: (_path, abort) => ++ calls === 1 ? new Promise(resolve => {
+			abort.addEventListener('abort', () => resolve(false))
+		}) : finalRemoval.promise,
+		reveal: () => {}, highlight: () => {}
+	}
+	const intent = { id: 'off', path: 'city', root: 'invoice' }
+	const off = f.consumer.select(intent, signal)
+	const on = f.consumer.select({ ...intent, id: 'on' }, signal)
+	const offAgain = f.consumer.select({ ...intent, id: 'off-again' }, signal)
+	await off
+	await on
+	while (calls < 2) await Promise.resolve()
+	assert.deepEqual(f.consumer.paths(), ['number'])
+	f.consumer.article.querySelectorAll = () => [{ dataset: { property: 'number' } }]
+	finalRemoval.resolve(true)
+	f.save.resolve()
+	assert.equal((await offAgain).status, 'removed')
+	assert.equal(f.consumer.removals.size, 0)
+})
+
+test('rechecking after deletion but before persistence adds the column again', async () => {
+	const f = fixture(), signal = new AbortController().signal
+	f.consumer.drag = undefined
+	f.consumer.options.addition = {
+		remove: async () => {
+			f.consumer.article.querySelectorAll = () => [{ dataset: { property: 'number' } }]
+			return true
+		},
+		reveal: () => {}, highlight: () => {}
+	}
+	f.consumer.add = async () => { f.events.push('add'); return 'added' }
+	const intent = { id: 'off', path: 'city', root: 'invoice' }
+	const off = f.consumer.select(intent, signal)
+	while (!f.events.includes('save')) await Promise.resolve()
+	const on = f.consumer.select({ ...intent, id: 'on' }, signal)
+	f.save.resolve()
+	assert.equal((await off).status, 'removed')
+	assert.equal((await on).status, 'added')
+	assert.equal(f.events.filter(event => event === 'add').length, 1)
 })
