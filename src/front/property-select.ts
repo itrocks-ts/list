@@ -46,6 +46,8 @@ export class ListPropertySelect implements ConsumerPort
 	private readonly observer: MutationObserver
 	private readonly pane: PaneHandle
 	private readonly pending = new Map<string, Promise<'added' | 'existing' | 'removed'>>()
+	private removedColumns = new Map<string, { left?: string; right?: string }>()
+	private readonly unsubscribePane: () => void
 	readonly view: PropertySelectView
 
 	constructor(private readonly article: HTMLElement, private readonly options: ListSelectorOptions)
@@ -58,6 +60,9 @@ export class ListPropertySelect implements ConsumerPort
 			} : undefined
 		const translate = (text: string) => initial?.translations?.[text] ?? text
 		this.pane = options.mountSelector(content, translate('Add columns'))
+		this.unsubscribePane = this.pane.subscribe(state => {
+			if (!state.open || !state.present) this.removedColumns = new Map()
+		})
 		this.view = new PropertySelectView(content, {
 			consumer: this, metadata: options.metadata, root: article.dataset.propertyRoot!,
 			advice: options.advice, stateKey: article.dataset.selectorKey!, stateMode: 'session',
@@ -117,7 +122,22 @@ export class ListPropertySelect implements ConsumerPort
 			await this.validateColumn(path, signal)
 			signal.throwIfAborted()
 			if (this.disposed) throw new Error('List disposed')
+			const position = this.removedColumns.get(path)
+			if (position) {
+				const headers = [...this.article.querySelectorAll<HTMLTableCellElement>(
+					'thead [data-property]:not(.column-add-provisional)'
+				)]
+				const left = headers.find(header => header.dataset.property === position.left)
+				const right = headers.find(header => header.dataset.property === position.right)
+				const anchor = left ?? right
+				if (anchor) {
+					let index = anchor.cellIndex + (left ? 1 : 0)
+					if (operation.header.cellIndex < index) index --
+					operation.moveTo(index)
+				}
+			}
 			const outcome = operation.commit()
+			this.removedColumns.delete(path)
 			await this.options.saveColumns()
 			this.view.selector.setConfiguration({ usedPaths: this.paths() })
 			return outcome
@@ -228,6 +248,8 @@ export class ListPropertySelect implements ConsumerPort
 		this.disposed = true
 		this.abort.abort()
 		this.observer.disconnect()
+		this.unsubscribePane()
+		this.removedColumns.clear()
 		this.view.dispose()
 		this.pane.remove()
 		this.options.addition.dispose()
@@ -243,7 +265,10 @@ export class ListPropertySelect implements ConsumerPort
 			const finished = drag.operation.finish(sample)
 			drag.drop()
 			const status = await finished
-			if (status !== 'cancelled') await this.options.saveColumns()
+			if (status !== 'cancelled') {
+				this.removedColumns.delete(drag.intent.path)
+				await this.options.saveColumns()
+			}
 			if (this.disposed) return { ...drag.intent, status: 'cancelled' }
 			if (this.drag === drag) this.drag = undefined
 			this.view.selector.setConfiguration({ usedPaths: this.paths() })
@@ -279,7 +304,12 @@ export class ListPropertySelect implements ConsumerPort
 
 	private async remove(path: string, signal: AbortSignal): Promise<'removed'>
 	{
+		const positions = this.removedColumns
+		const paths = this.paths()
+		const index = paths.indexOf(path)
+		const position = { left: paths[index - 1], right: paths[index + 1] }
 		if (!await this.options.addition.remove(path, signal)) throw new Error('Column removal cancelled')
+		if (!this.disposed && positions === this.removedColumns && index >= 0) positions.set(path, position)
 		await this.options.saveColumns()
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
 		return 'removed'

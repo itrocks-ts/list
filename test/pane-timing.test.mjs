@@ -28,7 +28,7 @@ function fixture()
 		article: { querySelectorAll: () => [{ dataset: { property: 'number' } }, { dataset: { property: 'city' } }] },
 		disposed: false, drag,
 		options: { saveColumns: () => { events.push('save'); return save.promise } },
-		pending: new Map(), view: { selector: {
+		pending: new Map(), removedColumns: new Map(), view: { selector: {
 			search: { results: [] }, setConfiguration: () => events.push('configuration')
 		} }
 	})
@@ -223,4 +223,61 @@ test('cancelled removal reports a recoverable failure without saving columns', a
 	assert.match(outcome.message, /cancelled/)
 	assert.deepEqual(f.events, [])
 	assert.equal(f.consumer.pending.size, 0)
+})
+
+for (const [name, columns, position, expected] of [
+	['left neighbour has priority', ['number', 'city', 'note'], { left: 'number', right: 'city' }, 2],
+	['left neighbour follows its current position', ['city', 'number', 'note'], { left: 'number', right: 'city' }, 3],
+	['right neighbour is the fallback', ['city', 'note'], { left: 'number', right: 'city' }, 1],
+	['missing neighbours append', ['note'], { left: 'number', right: 'city' }, undefined]
+]) {
+	test(`reselection placement: ${name}`, async () => {
+		const f = fixture(), signal = new AbortController().signal
+		f.consumer.drag = undefined
+		f.consumer.removedColumns.set('amount', position)
+		f.consumer.article.querySelectorAll = () => columns.map((path, index) => ({
+			cellIndex: index + 1, dataset: { property: path }
+		}))
+		f.consumer.columnSource = () => ({})
+		f.consumer.validateColumn = async () => {}
+		f.consumer.options.addition = { begin: () => ({
+			header: { cellIndex: columns.length + 1 },
+			cancel: () => assert.fail('Valid placement must commit'),
+			commit: () => { f.events.push('commit'); return 'added' },
+			moveTo: index => f.events.push(['move', index])
+		}) }
+		f.save.resolve()
+		assert.equal(await f.consumer.add('amount', signal), 'added')
+		assert.deepEqual(f.events, [...(expected === undefined ? [] : [['move', expected]]),
+			'commit', 'save', 'configuration'])
+		assert.equal(f.consumer.removedColumns.has('amount'), false)
+	})
+}
+
+test('closing during removal cannot repopulate the new pane memory', async () => {
+	const f = fixture(), removal = deferred()
+	f.consumer.drag = undefined
+	f.consumer.options.addition = { remove: () => removal.promise }
+	const result = f.consumer.remove('city', new AbortController().signal)
+	f.consumer.removedColumns = new Map()
+	removal.resolve(true)
+	f.save.resolve()
+	assert.equal(await result, 'removed')
+	assert.equal(f.consumer.removedColumns.size, 0)
+})
+
+test('failed admission retains the remembered neighbours for a later retry', async () => {
+	const f = fixture(), position = { left: 'number', right: 'city' }
+	f.consumer.drag = undefined
+	f.consumer.removedColumns.set('amount', position)
+	f.consumer.columnSource = () => ({})
+	f.consumer.validateColumn = async () => { throw new Error('Admission refused') }
+	f.consumer.options.addition = { begin: () => ({
+		cancel: () => f.events.push('cancel'),
+		commit: () => assert.fail('Rejected addition must not commit'),
+		moveTo: () => assert.fail('Rejected addition must not move')
+	}) }
+	await assert.rejects(f.consumer.add('amount', new AbortController().signal), /Admission refused/)
+	assert.deepEqual(f.events, ['cancel'])
+	assert.deepEqual(f.consumer.removedColumns.get('amount'), position)
 })

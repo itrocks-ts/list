@@ -190,9 +190,12 @@ through `/list/json`. Column configuration saves use the established `columns` p
 The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect`, with explicit metadata, table
 addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
 navigation. It reserves pending paths and confirms accepted additions. The selector checkbox toggles terminal and relation columns:
-an existing column is revealed, flashes red briefly and is removed; an unused property is appended.
+an existing column is revealed, flashes red briefly and is removed. When reselected by click, it returns immediately
+right of its former left neighbour, or left of its former right neighbour if the left one is absent. If neither remains,
+it is appended. Neighbours are kept only in this pane instance's memory and cleared on folding, closure or disposal;
+they never enter session state. Drag placement continues to follow the drop position.
 An explicit addition intention always requests addition: an existing column is revealed and highlighted green without removal.
-Property names request addition only; chevrons and intermediate path segments navigate.
+Property names and checkbox cells toggle the same selection; chevrons and intermediate path segments navigate.
 Selecting an existing relation object reveals/highlights its column without moving focus.
 The consumer checks row identity before insertion. Failed selection leaves the context intact. It loads only currently
 visible row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
@@ -251,6 +254,8 @@ restoration. Custom pane adapters may implement the same optional suspension arg
 `node test/browser-requests.mjs` checks request counts and real mouse gestures in Chromium with synthetic HTTP data.
 It covers initial mount, click placeholders, hidden drag preloading, reveal on table entry, values for 80 loaded rows,
 outside cancellation, terminal toggles, reordering and removal.
+`node test/browser-column-positions.mjs` checks neighbour-based reinsertion in the real table, both fallbacks,
+and memory expiry on closure, including closure during a pending removal. It starts its own synthetic HTTP fixture.
 Set `PS_PLAYWRIGHT_MODULE` to an installed Playwright module when using a different runtime.
 
 `node test/browser-toggle.mjs` exercises the real framework list against the synthetic recipe database on port 13316
