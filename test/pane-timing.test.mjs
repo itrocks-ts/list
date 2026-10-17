@@ -20,12 +20,13 @@ function fixture()
 	const finish = deferred(), save = deferred(), events = []
 	let restored = false
 	const drag = {
-		drop: () => {},
+		added: false,
 		intent: { id: 'drag', path: 'city', root: 'invoice' }, paths: ['number'],
 		operation: { cancel: () => { events.push('cancel'); finish.resolve('cancelled') }, finish: () => finish.promise },
 		restore: () => { if (!restored) { restored = true; events.push('restore') } }
 	}
 	const consumer = Object.assign(Object.create(ListPropertySelect.prototype), {
+		abort: new AbortController(),
 		article: { querySelectorAll: () => [{ dataset: { property: 'number' } }, { dataset: { property: 'city' } }] },
 		content: { querySelector: () => null }, disposed: false, drag,
 		options: { saveColumns: () => { events.push('save'); return save.promise } },
@@ -81,7 +82,7 @@ test('the pane folds before external geometry starts and restores on synchronous
 		f.events.push('fold')
 		return { restore: () => f.events.push('restore') }
 	} }
-	f.consumer.options.addition = { beginExternal: () => {
+	f.consumer.options.addition = { reveal() {}, beginExternal: () => {
 		assert.deepEqual(f.events, ['fold'])
 		throw new Error('Busy table')
 	} }
@@ -100,10 +101,13 @@ test('a dropped nested property uses its translated path in the provisional head
 			{ label: 'pays', path: 'city.country' }]
 	}]
 	f.consumer.pane = { suspend: () => ({ restore: () => {} }) }
-	f.consumer.options.addition = { beginExternal: source => {
-		label = source.create().header.textContent
-		return { cancel: () => {} }
-	} }
+	f.consumer.options.addition = {
+		begin: source => {
+			label = source.create().header.textContent
+			return { commit: () => 'added', cancel() {} }
+		},
+		beginExternal: () => ({ cancel() {} }), reveal() {}
+	}
 	globalThis.document = { createElement: () => ({ dataset: {}, textContent: '', append() {}, setAttribute() {} }) }
 	try {
 		f.consumer.begin({ ...f.drag.intent, path: 'city.country.name' }, {})
@@ -155,28 +159,53 @@ test('new drops restore the pane without waiting for their values request', asyn
 	assert.deepEqual(f.events, ['configuration', 'restore'])
 })
 
-test('external moves skip admission and new drags wait until drop before loading', async () => {
-	const f = fixture()
+test('new drags commit through click addition and load once before drop; existing drags only move', async () => {
+	const f = fixture(), values = deferred()
 	f.consumer.drag = undefined
-	f.consumer.pane = { suspend: () => ({ restore: () => {} }) }
-	let source
-	f.consumer.options.addition = { beginExternal: value => {
-		source = value
-		return { cancel: () => {} }
-	} }
+	f.consumer.pane = { suspend: () => ({ restore() {} }) }
+	const columns = ['number', 'city']
+	f.consumer.article.querySelectorAll = () => columns.map(property => ({ dataset: { property } }))
+	let loading
+	f.consumer.loadColumn = () => { f.events.push('load'); return values.promise }
+	f.consumer.options.addition = {
+		begin: (source, options) => {
+			assert.deepEqual(options, { effects: false, hidden: true })
+			f.events.push('create')
+			loading = source.load(new AbortController().signal)
+			return { commit: () => { columns.push(source.id); f.events.push('commit'); return 'added' }, cancel() {} }
+		},
+		beginExternal: (source, _sample, options) => {
+			assert.deepEqual(options, { adding: source.id === 'new', removal: true })
+			assert.ok(columns.includes(source.id), 'Drag operates on the committed column')
+			f.events.push('move')
+			return { cancel() {}, finish: async () => 'moved' }
+		},
+		reveal() {}
+	}
 	f.consumer.begin({ ...f.drag.intent, path: 'number' }, {})
-	assert.equal(source.accept, undefined)
+	assert.deepEqual(f.events, ['move'])
 	f.consumer.cancel('drag')
-	let loaded = false
-	f.consumer.loadColumn = async () => { loaded = true; return { cells: [], header: {} } }
+	f.events.length = 0
 	f.consumer.begin({ ...f.drag.intent, path: 'new' }, {})
-	const loading = source.load(new AbortController().signal)
+	assert.deepEqual(f.events, ['create', 'commit', 'configuration', 'move'])
+	assert.deepEqual(f.consumer.paths(), ['number', 'city', 'new'])
 	await Promise.resolve()
-	assert.equal(loaded, false)
-	f.consumer.cancel('drag')
+	assert.equal(f.events.filter(event => event === 'load').length, 1)
+	values.resolve({ cells: [], header: {} })
 	await loading
-	assert.equal(loaded, true)
-	f.consumer.cancel('drag')
+	assert.equal((await f.consumer.end('drag', {})).status, 'added')
+	assert.equal(f.events.includes('save'), false, 'An unchanged drop does not save again')
+})
+
+test('a moved new column saves its final order without reloading its values', async () => {
+	const f = fixture()
+	f.drag.added = true
+	const result = f.consumer.end('drag', {})
+	f.finish.resolve('moved')
+	await Promise.resolve()
+	assert.deepEqual(f.events, ['save'])
+	f.save.resolve()
+	assert.equal((await result).status, 'added')
 })
 
 
@@ -301,7 +330,7 @@ test('cancelled addition retains the remembered neighbours for a later retry', a
 		commit: () => assert.fail('Rejected addition must not commit'),
 		moveTo: () => assert.fail('Rejected addition must not move')
 	}) }
-	await assert.rejects(f.consumer.add('amount', abort.signal), /Addition cancelled/)
+	assert.throws(() => f.consumer.add('amount', abort.signal), /Addition cancelled/)
 	assert.deepEqual(f.events, ['cancel'])
 	assert.deepEqual(f.consumer.removedColumns.get('amount'), position)
 })
@@ -395,4 +424,14 @@ test('removal saves the unchecked paths before animation finishes and does not s
 	animation.resolve(true)
 	assert.equal(await result, 'removed')
 	assert.deepEqual(saves, [['number']])
+})
+
+
+test('a removed new drag keeps the removed outcome and does not duplicate standard removal persistence', async () => {
+	const f = fixture()
+	f.drag.added = true
+	const result = f.consumer.end('drag', {})
+	f.finish.resolve('removed')
+	assert.equal((await result).status, 'removed')
+	assert.equal(f.events.includes('save'), false)
 })

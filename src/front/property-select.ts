@@ -1,16 +1,17 @@
-import { PropertySelectView }    from '@itrocks/property-select/front/property-select.js'
-import type { ConsumerPort }     from '@itrocks/property-select/property-select.js'
-import type { MetadataProvider } from '@itrocks/property-select/property-select.js'
-import type { Outcome }          from '@itrocks/property-select/property-select.js'
-import type { PointerSample }    from '@itrocks/property-select/property-select.js'
-import type { SelectionIntent }  from '@itrocks/property-select/property-select.js'
-import type { StateRecord }      from '@itrocks/property-select/property-select.js'
-import { normalisePath }         from '@itrocks/property-select/property-select.js'
-import type { ColumnContent }    from '@itrocks/table/column-add.js'
-import type { ColumnOperation }  from '@itrocks/table/column-add.js'
-import type { ColumnSource }     from '@itrocks/table/column-add.js'
-import { TableColumnAdd }        from '@itrocks/table/column-add.js'
-import { HttpStateStore }        from './selector-state.js'
+import { PropertySelectView }         from '@itrocks/property-select/front/property-select.js'
+import type { ConsumerPort }          from '@itrocks/property-select/property-select.js'
+import type { MetadataProvider }      from '@itrocks/property-select/property-select.js'
+import type { Outcome }               from '@itrocks/property-select/property-select.js'
+import type { PointerSample }         from '@itrocks/property-select/property-select.js'
+import type { SelectionIntent }       from '@itrocks/property-select/property-select.js'
+import type { StateRecord }           from '@itrocks/property-select/property-select.js'
+import { normalisePath }              from '@itrocks/property-select/property-select.js'
+import type { ColumnCreationOptions } from '@itrocks/table/column-add.js'
+import type { ColumnContent }         from '@itrocks/table/column-add.js'
+import type { ColumnOperation }       from '@itrocks/table/column-add.js'
+import type { ColumnSource }          from '@itrocks/table/column-add.js'
+import { TableColumnAdd }             from '@itrocks/table/column-add.js'
+import { HttpStateStore }             from './selector-state.js'
 
 export type PaneHandle = {
 	close(): void
@@ -39,7 +40,7 @@ export class ListPropertySelect implements ConsumerPort
 	private readonly content = document.createElement('div')
 	private disposed = false
 	private drag?: {
-		drop(): void
+		added: boolean
 		intent: SelectionIntent
 		operation: ColumnOperation
 		paths: string[]
@@ -126,10 +127,10 @@ export class ListPropertySelect implements ConsumerPort
 		return { cells, header }
 	}
 
-	private async add(path: string, signal: AbortSignal): Promise<'added' | 'existing'>
+	private add(path: string, signal: AbortSignal, options: ColumnCreationOptions = {}): 'added' | 'existing'
 	{
 		const source = this.columnSource(path)
-		const operation = this.options.addition.begin(source)
+		const operation = this.options.addition.begin(source, options)
 		try {
 			signal.throwIfAborted()
 			if (this.disposed) throw new Error('List disposed')
@@ -162,14 +163,15 @@ export class ListPropertySelect implements ConsumerPort
 	{
 		if (this.disposed || this.drag || this.pending.size) throw new Error('A column operation is pending')
 		const path = normalisePath(intent.path)
-		const paths = this.paths()
+		const added = !this.paths().includes(path)
 		const suspension = this.pane.suspend({ mobileOnly: true })
 		try {
-			let drop!: () => void
-			const dropped = new Promise<void>(resolve => { drop = resolve })
-			const source = this.columnSource(path, dropped)
-			const operation = this.options.addition.beginExternal(source, sample)
-			this.drag = { drop, intent, operation, paths, restore: () => suspension.restore() }
+			if (added) this.add(path, this.abort.signal, { effects: false, hidden: true })
+			const paths = this.paths()
+			const operation = this.options.addition.beginExternal(
+				this.columnSource(path), sample, { adding: added, removal: true }
+			)
+			this.drag = { added, intent, operation, paths, restore: () => suspension.restore() }
 		}
 		catch (error) {
 			suspension.restore()
@@ -177,7 +179,7 @@ export class ListPropertySelect implements ConsumerPort
 		}
 	}
 
-	private columnSource(path: string, ready = Promise.resolve()): ColumnSource
+	private columnSource(path: string): ColumnSource
 	{
 		const selector = this.view.selector
 		const row = this.content.querySelector<HTMLElement>(`.ps-property[data-path="${CSS.escape(path)}"]`)
@@ -211,7 +213,8 @@ export class ListPropertySelect implements ConsumerPort
 				return { cells, header }
 			},
 			load: async signal => {
-				await ready
+				// Commit the placeholder before reading the column configuration.
+				await Promise.resolve()
 				signal.throwIfAborted()
 				return this.loadColumn(path, signal)
 			}
@@ -223,10 +226,16 @@ export class ListPropertySelect implements ConsumerPort
 		if (this.drag?.intent.id !== id) return
 		const drag = this.drag
 		drag.operation.cancel()
-		drag.drop()
 		this.drag = undefined
 		drag.restore()
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
+	}
+
+	private displayedPaths(): string[]
+	{
+		return [...this.article.querySelectorAll<HTMLElement>('thead [data-property]:not(.column-add-provisional)')]
+			.map(header => header.dataset.property!)
+			.filter(path => !this.removals.has(path) || this.removals.get(path)!.signal.aborted)
 	}
 
 	dispose(): void
@@ -252,10 +261,12 @@ export class ListPropertySelect implements ConsumerPort
 		const drag = this.drag
 		if (!drag || drag.intent.id !== id) throw new Error('Unknown column transport')
 		try {
-			const status = await drag.operation.finish(sample)
+			let status = await drag.operation.finish(sample)
 			if (status !== 'cancelled') {
 				this.removedColumns.delete(drag.intent.path)
-				if (status === 'moved') await this.options.saveColumns()
+				if (status === 'moved' && this.displayedPaths().join(',') !== drag.paths.join(','))
+					await this.options.saveColumns()
+				if (drag.added && status === 'moved') status = 'added'
 			}
 			if (this.disposed) return { ...drag.intent, status: 'cancelled' }
 			if (this.drag === drag) this.drag = undefined
@@ -268,7 +279,6 @@ export class ListPropertySelect implements ConsumerPort
 		}
 		finally {
 			if (this.drag === drag) this.drag = undefined
-			drag.drop()
 			drag.restore()
 		}
 	}
@@ -286,10 +296,7 @@ export class ListPropertySelect implements ConsumerPort
 
 	paths(): string[]
 	{
-		if (this.drag) return [...this.drag.paths]
-		return [...this.article.querySelectorAll<HTMLElement>('thead [data-property]:not(.column-add-provisional)')]
-			.map(header => header.dataset.property!)
-			.filter(path => !this.removals.has(path) || this.removals.get(path)!.signal.aborted)
+		return this.drag ? [...this.drag.paths] : this.displayedPaths()
 	}
 
 	private async remove(path: string, signal: AbortSignal): Promise<'existing' | 'removed'>
@@ -353,7 +360,7 @@ export class ListPropertySelect implements ConsumerPort
 					? this.remove(path, signal)
 					: existing
 						? Promise.resolve('existing' as const)
-						: this.add(path, signal)
+						: Promise.resolve(this.add(path, signal))
 				this.pending.set(path, operation)
 				try { status = await operation }
 				finally { if (this.pending.get(path) === operation) this.pending.delete(path) }

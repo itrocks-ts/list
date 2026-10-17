@@ -54,8 +54,9 @@ const server = createServer(async (request, response) => {
 		}
 		response.setHeader('Content-Type', 'text/html')
 		response.end(`<!doctype html><html><head>
+			<link rel="stylesheet" href="/@itrocks/list/list.css">
 			<script type="importmap">{"imports":{"@itrocks/":"/@itrocks/"}}</script>
-			<style>body { margin:30px; font-family:sans-serif } table { display:block; width:650px; height:240px;
+			<style>body { margin:30px; font-family:sans-serif } table.objects { display:block; width:650px; height:240px;
 				overflow:auto; border-collapse:collapse } th,td { min-width:120px; height:30px; border:1px solid #ccc }
 				th.select { min-width:40px } #pane { position:absolute; left:750px; top:30px; width:300px; height:400px }
 				#pane > div { height:100% } .ps-properties { height:160px; overflow:auto } input { width:100px }
@@ -64,7 +65,7 @@ const server = createServer(async (request, response) => {
 				data-selector-bootstrap="${encodeURIComponent(JSON.stringify(initial))}">
 				<button class="add-column" hidden type="button">+</button>
 				<form action="/fixture/list"><table class="objects">
-					<colgroup><col data-freeze><col><col></colgroup><thead><tr>
+					<colgroup><col data-freeze><col><col></colgroup><thead><tr class="properties">
 					<th class="select">ID</th><th data-property="number">number</th><th data-property="amount">amount</th>
 				</tr></thead><tbody>${Array.from({ length: 80 }, (_, index) => `<tr>
 					<th class="select"><input name="id" value="${index + 1}"></th>
@@ -148,15 +149,9 @@ try {
 	assert.equal(requests.length, 1)
 	assert.ok(requests[0].includes('columns='), 'Remove only saves column order')
 	requests.length = 0
-	const geometry = () => page.evaluate(() => ({
-		headers: [...document.querySelectorAll('thead th:not([hidden])')].map(cell => {
-			const rect = cell.getBoundingClientRect()
-			return { x: rect.x, width: rect.width }
-		}),
-		width: document.querySelector('table').scrollWidth,
-		scroll: document.querySelector('table').scrollLeft
+	const beforeHidden = await page.locator('table').evaluate(table => ({
+		left: table.scrollLeft, width: table.scrollWidth
 	}))
-	const beforeDrag = await geometry()
 	await page.locator('.ps-main[data-path="note"]').scrollIntoViewIfNeeded()
 	const source = await page.locator('.ps-main[data-path="note"]').boundingBox()
 	await page.mouse.move(source.x + 20, source.y + 12)
@@ -165,52 +160,85 @@ try {
 	await page.locator('th[data-property="note"]').waitFor({ state: 'attached' })
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), false)
 	assert.equal(await page.locator('colgroup col[hidden]').count(), 1)
-	assert.deepEqual(await geometry(), beforeDrag, 'Hidden preview leaves layout and scroll unchanged')
+	assert.equal(await page.locator('th[data-property="note"]').evaluate(header =>
+		header.classList.contains('column-add-provisional')), false)
 	assert.equal(await page.locator('tbody tr:first-child td:last-child').textContent(), '\u00a0')
-	await page.waitForTimeout(100)
-	assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 0,
-		'Dragging before drop does not request or save columns')
-	assert.equal(requests.some(url => url.includes('rowIds=')), false)
+	await page.waitForFunction(() =>
+		document.querySelector('tbody tr:last-child td:last-child').textContent === 'note-80')
+	assert.equal(requests.filter(url => url.includes('rowIds=')).length, 1, 'Values load while the pointer is held')
+	assert.equal(await page.locator('th[data-property="note"]').evaluate(header =>
+		header.classList.contains('column-reorder')), true, 'Loaded header remains in the table drag')
+	assert.deepEqual(await page.locator('table').evaluate(table => ({
+		left: table.scrollLeft, width: table.scrollWidth
+	})), beforeHidden, 'Hidden creation and loaded values cause no zoom or scroll')
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), false)
-	assert.deepEqual(await geometry(), beforeDrag, 'Loaded preview remains hidden without changing layout')
-	const saved = page.waitForRequest(request => request.url().includes('columns='))
-	void saved.catch(() => {})
-	await page.mouse.move(target.x + 30, target.y + 15, { steps: 10 })
-	assert.equal(await page.locator('th[data-property="note"]').isVisible(), true)
-	assert.equal(await page.locator('colgroup col[hidden]').count(), 0)
+	assert.equal(await page.locator('th[data-property="note"]').evaluate(header =>
+		header.classList.contains('column-add-highlight') || header.classList.contains('column-add-opening')), false)
+	const amount = await page.locator('th[data-property="amount"]').boundingBox()
+	await page.mouse.move(amount.x + amount.width - 5, amount.y + 15, { steps: 10 })
+	await page.locator('th[data-property="note"]').waitFor({ state: 'visible' })
+	const indicator = await page.locator('th[data-property="note"]').evaluate(header => ({
+		adding: header.classList.contains('adding'), moving: header.classList.contains('moving'),
+		mask: getComputedStyle(header, '::before').maskImage,
+		color: getComputedStyle(header, '::before').backgroundColor
+	}))
+	assert.equal(indicator.adding, true)
+	assert.equal(indicator.moving, false)
+	assert.ok(indicator.mask.includes('column-add.svg'), JSON.stringify(indicator))
+	assert.equal(indicator.color, 'rgb(47, 137, 67)')
+	const note = await page.locator('th[data-property="note"]').boundingBox()
+	await page.mouse.move(note.x + note.width / 2, note.y + 15, { steps: 10 })
 	await page.mouse.up()
-	await saved
-	await page.waitForFunction(() => document.querySelector('th[data-property="note"]')
-		&& [...document.querySelectorAll('tbody tr:last-child td')].some(cell => cell.textContent === 'note-80'))
-	assert.equal(requests.filter(url => url.startsWith('/fixture/list?')).length, 1)
-	assert.equal(requests.filter(url => url.includes('rowIds=')).length, 1)
+	await page.waitForTimeout(150)
+	assert.equal(requests.filter(url => url.startsWith('/fixture/list?')).length, 1,
+		'Dropping at the created position does not save or load again')
 	assert.ok(requests.find(url => url.includes('rowIds=')).includes('columns='))
-	// Abandon a hidden preview, then one filled after entry while the pointer is still held.
-	for (const entered of [false, true]) {
+	// A new column follows the same addition, then saves only its changed order at drop.
+	requests.length = 0
+	await page.locator('.ps-main[data-path="city"]').scrollIntoViewIfNeeded()
+	const city = await page.locator('.ps-main[data-path="city"]').boundingBox()
+	await page.mouse.move(city.x + 20, city.y + 12)
+	await page.mouse.down()
+	await page.mouse.move(city.x - 30, city.y + 12, { steps: 5 })
+	await page.waitForFunction(() => [...document.querySelectorAll('tbody tr:last-child td')]
+		.some(cell => cell.textContent === 'city-80'))
+	const first = await page.locator('th[data-property="number"]').boundingBox()
+	await page.mouse.move(first.x + 10, first.y + 15, { steps: 10 })
+	await page.mouse.up()
+	await page.waitForTimeout(150)
+	assert.equal(requests.filter(url => url.includes('rowIds=')).length, 1)
+	assert.equal(requests.filter(url => url.startsWith('/fixture/list?')).length, 2,
+		'A changed order needs one configuration save, without reloading the values')
+	const order = await page.locator('thead [data-property]').evaluateAll(headers =>
+		headers.map(header => header.dataset.property))
+	assert.equal(order[0], 'city')
+	assert.equal(new URL(requests.at(-1), 'http://fixture').searchParams.get('columns'), order.join(','))
+	// Outside drops use the table's normal removal, before or after entering, including late values.
+	for (const entered of [false, true]) for (const loaded of [false, true]) {
 		requests.length = 0
-		await page.locator('.ps-main[data-path="city"]').scrollIntoViewIfNeeded()
-		const cancelled = await page.locator('.ps-main[data-path="city"]').boundingBox()
-		await page.mouse.move(cancelled.x + 20, cancelled.y + 12)
+		await page.locator('.ps-main[data-path="field1"]').scrollIntoViewIfNeeded()
+		const source = await page.locator('.ps-main[data-path="field1"]').boundingBox()
+		await page.mouse.move(source.x + 20, source.y + 12)
 		await page.mouse.down()
-		await page.mouse.move(cancelled.x - 30, cancelled.y + 12, { steps: 5 })
-		await page.locator('th[data-property="city"]').waitFor({ state: 'attached' })
-		assert.equal(await page.locator('th[data-property="city"]').isVisible(), false)
+		await page.mouse.move(source.x - 30, source.y + 12, { steps: 5 })
+		await page.locator('th[data-property="field1"]').waitFor({ state: 'attached' })
 		if (entered) {
-			await page.mouse.move(target.x + 30, target.y + 15)
-			assert.equal(await page.locator('th[data-property="city"]').isVisible(), true)
-			assert.equal(await page.locator('tbody tr:first-child').evaluate(row =>
-				row.cells[document.querySelector('th[data-property="city"]').cellIndex].textContent), '\u00a0')
-			await page.waitForTimeout(100)
-			assert.equal(await page.locator('th[data-property="city"]').isVisible(), true)
+			const target = await page.locator('th[data-property="number"]').boundingBox()
+			await page.mouse.move(target.x + 20, target.y + 15, { steps: 5 })
+			await page.locator('th[data-property="field1"]').waitFor({ state: 'visible' })
 		}
-		await page.mouse.move(700, 10)
+		if (loaded) await page.waitForFunction(() => [...document.querySelectorAll('tbody tr:last-child td')]
+			.some(cell => cell.textContent === 'field1-80'))
+		await page.mouse.move(700, 10, { steps: 5 })
 		await page.mouse.up()
+		await page.locator('th[data-property="field1"]').waitFor({ state: 'detached' })
 		await page.waitForTimeout(450)
-		assert.equal(await page.locator('th[data-property="city"]').count(), 0)
-		assert.equal(await page.locator('colgroup col').count(), 4)
-		assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 0,
-			'Abandoned previews make no column request')
-		assert.equal(requests.some(url => url.includes('rowIds=')), false)
+		assert.equal(await page.locator('th[data-property="field1"]').count(), 0)
+		assert.equal(await page.locator('colgroup col[hidden]').count(), 0)
+		assert.equal(requests.filter(url => url.includes('rowIds=')).length, 1)
+		assert.equal(requests.filter(url => url.includes('columns=') && !url.includes('rowIds=')).length, 1,
+			'Outside drop saves removal exactly once through the standard header callback')
+		assert.equal(new URL(requests.at(-1), 'http://fixture').searchParams.get('columns')?.includes('field1'), false)
 	}
 	requests.length = 0
 	await page.locator('.ps-main[data-path="field0"]').click()
@@ -229,6 +257,6 @@ try {
 	assert.equal(requests.filter(url => new URL(url, 'http://fixture').searchParams.get('column') === 'field0').length,
 		1, 'A failed load never retries automatically')
 	assert.deepEqual(errors, [])
-	console.log('PASS: one initial request; single combined column request; reveal on entry; outside cancellation; request budgets')
+	console.log('PASS hidden drag addition, single load, green indicator and standard outside removal')
 }
 finally { await browser?.close(); await new Promise(resolve => server.close(resolve)) }

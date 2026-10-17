@@ -204,9 +204,14 @@ The consumer checks row identity before insertion. Failed selection leaves the c
 visible row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
 discreet red background. Clicks commit the translated full-path heading and filter locally, before any server response.
 One asynchronous request
-then saves the column order and loads the values; there is no separate admission request. A new dragged column stays
-hidden until the pointer enters the table. Dropping commits it locally and starts the same combined request; cancelled
-previews make no column request. The optional `request(query, signal)` port shares the list persistence queue.
+then saves the column order and loads the values; there is no separate admission request. A new drag calls the same
+addition code as a click with `{ effects: false, hidden: true }`, then moves the committed column through the standard
+table reorder operation with `{ adding: true, removal: true }`. Its combined request loads values immediately while
+cells remain hidden, without width animation, flash or automatic scroll. On first pointer entry, the column appears
+with any values already received and uses a green background and plus indicator. An outside drop deletes it through
+the standard header-origin removal and saves once, even if the pointer never entered. Cancelling a new addition also
+removes it. Dropping inside saves only a changed column order; it never reloads values.
+The optional `request(query, signal)` port shares the list persistence queue.
 Existing-column moves and removals only save the column configuration. The header contains each label and its filter
 together, so it uses the table addition plugin's single-header contract.
 
@@ -244,8 +249,8 @@ one combined configuration/projection request after the local commit. A failed v
 in place, with a discreet red background on its data cells. The spaces remain; no error text, retry button or automatic
 retry is added. The translated full path comes from the selector's displayed row and available branch metadata.
 
-Pending paths and the active drag are reserved before asynchronous work. Used paths retain their committed order
-throughout the drag, and configuration saves exclude provisional cells. New accepted drops feed recents; moves and
+Pending paths and the active drag are reserved before asynchronous work. Used paths include the new column immediately
+and retain their committed order throughout the drag. New accepted drops feed recents; moves and
 cancellations do not. Row-view changes and view disposal cancel transport. The desktop pane stays open, and capture is
 owned by the selector's surviving source controller. The consumer imports no home implementation, SQL or hydration code.
 
@@ -255,8 +260,8 @@ cancellation/rejection; it never focuses the search field. View disposal removes
 restoration. Custom pane adapters may implement the same optional suspension argument without importing `home`.
 
 `node test/browser-requests.mjs` checks request counts and real mouse gestures in Chromium with synthetic HTTP data.
-It covers initial mount, click placeholders, hidden drag preloading, reveal on table entry, values for 80 loaded rows,
-outside cancellation, terminal toggles, reordering and removal.
+It covers initial mount, click placeholders, hidden drag additions, values for 80 loaded rows before entry or drop,
+green addition indicators, outside removal before and after entry, terminal toggles and reordering.
 `node test/browser-removal-cancel.mjs` checks immediate unchecking and cancellation during the red flash through
 checkbox, cell and name clicks, for terminal and relation columns, with an immediate removal save followed by a restored configuration save.
 `node test/browser-column-positions.mjs` checks neighbour-based reinsertion in the real table, both fallbacks,
