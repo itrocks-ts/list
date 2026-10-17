@@ -297,12 +297,8 @@ export class ListPropertySelect implements ConsumerPort
 				status = 'existing'
 			}
 			else {
-				const selector = this.view.selector
-				const property = selector.context?.properties.find(property => property.path === path)
-					|| selector.search.results.find(result => result.property.path === path)?.property
-					|| selector.usedProperties.find(property => property.path === path)
 				const existing = this.paths().includes(path)
-				const operation = existing && (property?.kind === 'terminal') && (intent.action !== 'add')
+				const operation = existing && (intent.action !== 'add')
 					? this.remove(path, signal)
 					: existing
 						? Promise.resolve('existing' as const)

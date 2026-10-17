@@ -157,10 +157,11 @@ test('external moves skip admission and new drags load values before drop', asyn
 })
 
 
-test('select toggles existing terminal columns once while repeated clicks share removal', async () => {
+for (const kind of ['relation', 'terminal'])
+test(`select toggles existing ${kind} columns once while repeated clicks share removal`, async () => {
 	const f = fixture(), removal = deferred(), signal = new AbortController().signal
 	f.consumer.drag = undefined
-	f.consumer.view.selector.context = { properties: [{ kind: 'terminal', path: 'city' }] }
+	f.consumer.view.selector.context = { properties: [{ kind, path: 'city' }] }
 	f.consumer.view.selector.usedProperties = []
 	f.consumer.options.addition = {
 		remove: () => { f.events.push('remove'); return removal.promise },
@@ -196,7 +197,7 @@ test('plus keeps existing terminal columns and reveals them without saving or re
 	assert.equal(f.consumer.pending.size, 0)
 })
 
-test('select keeps existing relation columns and reveals them without navigation', async () => {
+test('explicit addition keeps existing relation columns and reveals them without navigation', async () => {
 	const f = fixture(), signal = new AbortController().signal
 	f.consumer.drag = undefined
 	f.consumer.view.selector.context = { properties: [{ kind: 'relation', path: 'city' }] }
@@ -206,7 +207,7 @@ test('select keeps existing relation columns and reveals them without navigation
 		reveal: path => f.events.push(['reveal', path]),
 		highlight: path => f.events.push(['highlight', path])
 	}
-	const outcome = await f.consumer.select({ id: 'click', path: 'city', root: 'invoice' }, signal)
+	const outcome = await f.consumer.select({ action: 'add', id: 'click', path: 'city', root: 'invoice' }, signal)
 	assert.equal(outcome.status, 'existing')
 	assert.deepEqual(f.events, [['reveal', 'city'], ['highlight', 'city']])
 })
