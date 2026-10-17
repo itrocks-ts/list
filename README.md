@@ -192,8 +192,8 @@ addition, column persistence and narrow pane ports. The framework mounts it only
 navigation. It reserves pending paths and confirms accepted additions. The selector checkbox toggles terminal and relation columns:
 an existing column is revealed, flashes red briefly and is removed; an unused property is appended.
 An explicit addition intention always requests addition: an existing column is revealed and highlighted green without removal.
-Relation names navigate,
-and selecting an existing relation object reveals/highlights its column without moving focus.
+Property names request addition only; chevrons and intermediate path segments navigate.
+Selecting an existing relation object reveals/highlights its column without moving focus.
 The consumer checks row identity before insertion. Failed selection leaves the context intact. It loads only currently
 visible row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
 retry message. Clicks and desktop drags create empty columns and immediately load values asynchronously through the

@@ -105,7 +105,7 @@ try {
 	assert.equal(new URL(requests.find(url => url.includes('rowIds=')), 'http://fixture').searchParams
 		.get('rowIds').split(',').length, 80, 'Fill every row through the current fetch position')
 	requests.length = 0
-	await page.locator('.ps-main[data-path="city"]').click()
+	await page.locator('.ps-check[data-path="city"]').click()
 	await page.locator('th[data-property="city"].column-remove-highlight').waitFor()
 	assert.deepEqual(requests, [], 'Removal waits for the red flash before saving')
 	await page.locator('th[data-property="city"]').waitFor({ state: 'detached' })
