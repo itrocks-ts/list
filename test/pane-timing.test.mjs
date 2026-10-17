@@ -155,3 +155,55 @@ test('external moves skip admission and new drags load values before drop', asyn
 	assert.equal(loaded, true)
 	f.consumer.cancel('drag')
 })
+
+
+test('select toggles existing terminal columns once while repeated clicks share removal', async () => {
+	const f = fixture(), removal = deferred(), signal = new AbortController().signal
+	f.consumer.drag = undefined
+	f.consumer.view.selector.context = { properties: [{ kind: 'terminal', path: 'city' }] }
+	f.consumer.view.selector.usedProperties = []
+	f.consumer.options.addition = {
+		remove: () => { f.events.push('remove'); return removal.promise },
+		reveal: () => assert.fail('Removed columns must not be revealed again'),
+		highlight: () => assert.fail('Removed columns must not flash green')
+	}
+	const intent = { id: 'click', path: 'city', root: 'invoice' }
+	const first = f.consumer.select(intent, signal)
+	const repeated = f.consumer.select({ ...intent, id: 'repeat' }, signal)
+	assert.deepEqual(f.events, ['remove'])
+	f.consumer.article.querySelectorAll = () => [{ dataset: { property: 'number' } }]
+	removal.resolve(true)
+	await Promise.resolve()
+	f.save.resolve()
+	assert.equal((await first).status, 'removed')
+	assert.equal((await repeated).status, 'existing')
+	assert.deepEqual(f.events, ['remove', 'save', 'configuration'])
+})
+
+test('select keeps existing relation columns and reveals them without navigation', async () => {
+	const f = fixture(), signal = new AbortController().signal
+	f.consumer.drag = undefined
+	f.consumer.view.selector.context = { properties: [{ kind: 'relation', path: 'city' }] }
+	f.consumer.view.selector.usedProperties = []
+	f.consumer.options.addition = {
+		remove: () => assert.fail('Relations are selected without toggling'),
+		reveal: path => f.events.push(['reveal', path]),
+		highlight: path => f.events.push(['highlight', path])
+	}
+	const outcome = await f.consumer.select({ id: 'click', path: 'city', root: 'invoice' }, signal)
+	assert.equal(outcome.status, 'existing')
+	assert.deepEqual(f.events, [['reveal', 'city'], ['highlight', 'city']])
+})
+
+test('cancelled removal reports a recoverable failure without saving columns', async () => {
+	const f = fixture(), signal = new AbortController().signal
+	f.consumer.drag = undefined
+	f.consumer.view.selector.context = { properties: [{ kind: 'terminal', path: 'city' }] }
+	f.consumer.view.selector.usedProperties = []
+	f.consumer.options.addition = { remove: async () => false }
+	const outcome = await f.consumer.select({ id: 'click', path: 'city', root: 'invoice' }, signal)
+	assert.equal(outcome.status, 'rejected')
+	assert.match(outcome.message, /cancelled/)
+	assert.deepEqual(f.events, [])
+	assert.equal(f.consumer.pending.size, 0)
+})

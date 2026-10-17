@@ -45,7 +45,7 @@ export class ListPropertySelect implements ConsumerPort
 	}
 	private readonly observer: MutationObserver
 	private readonly pane: PaneHandle
-	private readonly pending = new Map<string, Promise<'added' | 'existing'>>()
+	private readonly pending = new Map<string, Promise<'added' | 'existing' | 'removed'>>()
 	readonly view: PropertySelectView
 
 	constructor(private readonly article: HTMLElement, private readonly options: ListSelectorOptions)
@@ -276,28 +276,43 @@ export class ListPropertySelect implements ConsumerPort
 			.map(header => header.dataset.property!)
 	}
 
+	private async remove(path: string, signal: AbortSignal): Promise<'removed'>
+	{
+		if (!await this.options.addition.remove(path, signal)) throw new Error('Column removal cancelled')
+		await this.options.saveColumns()
+		this.view.selector.setConfiguration({ usedPaths: this.paths() })
+		return 'removed'
+	}
+
 	async select(intent: SelectionIntent, signal: AbortSignal): Promise<Outcome>
 	{
 		const path = normalisePath(intent.path)
 		try {
 			if (this.drag) throw new Error('A column transport is pending')
-			let status: 'added' | 'existing'
+			let status: 'added' | 'existing' | 'removed'
 			const pending = this.pending.get(path)
 			if (pending) {
 				await pending
 				status = 'existing'
 			}
-			else if (this.paths().includes(path)) status = 'existing'
 			else {
-				const operation = this.add(path, signal)
+				const selector = this.view.selector
+				const property = selector.context?.properties.find(property => property.path === path)
+					|| selector.search.results.find(result => result.property.path === path)?.property
+					|| selector.usedProperties.find(property => property.path === path)
+				const existing = this.paths().includes(path)
+				const operation = existing && property?.kind === 'terminal'
+					? this.remove(path, signal) : existing ? Promise.resolve('existing' as const) : this.add(path, signal)
 				this.pending.set(path, operation)
 				try { status = await operation }
 				finally { if (this.pending.get(path) === operation) this.pending.delete(path) }
 			}
 			signal.throwIfAborted()
 			if (this.disposed) throw new Error('List disposed')
-			this.options.addition.reveal(path)
-			this.options.addition.highlight(path)
+			if (status !== 'removed' && this.paths().includes(path)) {
+				this.options.addition.reveal(path)
+				this.options.addition.highlight(path)
+			}
 			return { ...intent, status }
 		}
 		catch (error) {

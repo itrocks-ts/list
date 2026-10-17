@@ -56,8 +56,8 @@ const server = createServer(async (request, response) => {
 			<script type="importmap">{"imports":{"@itrocks/":"/@itrocks/"}}</script>
 			<style>body { margin:30px; font-family:sans-serif } table { display:block; width:650px; height:240px;
 				overflow:auto; border-collapse:collapse } th,td { min-width:120px; height:30px; border:1px solid #ccc }
-				th.select { min-width:40px } #pane { position:absolute; left:750px; top:30px; width:300px }
-				.ps-properties { height:160px; overflow:auto } input { width:100px }
+				th.select { min-width:40px } #pane { position:absolute; left:750px; top:30px; width:300px; height:400px }
+				#pane > div { height:100% } .ps-properties { height:160px; overflow:auto } input { width:100px }
 				.column-reorder { opacity:.8 }</style></head><body>
 			<article data-action="list" data-property-root="/fixture" data-selector-key="/fixture/list"
 				data-selector-bootstrap="${encodeURIComponent(JSON.stringify(initial))}">
@@ -106,8 +106,17 @@ try {
 		.get('rowIds').split(',').length, 80, 'Fill every row through the current fetch position')
 	requests.length = 0
 	await page.locator('.ps-main[data-path="city"]').click()
+	await page.locator('th[data-property="city"].column-remove-highlight').waitFor()
+	assert.deepEqual(requests, [], 'Removal waits for the red flash before saving')
+	await page.locator('th[data-property="city"]').waitFor({ state: 'detached' })
 	await page.waitForTimeout(80)
-	assert.deepEqual(requests, [], 'Duplicate click makes no requests')
+	assert.equal(requests.length, 1, 'Removal only saves columns')
+	assert.ok(requests[0].includes('columns='))
+	await page.locator('.ps-main[data-path="city"]').click()
+	await page.locator('th[data-property="city"]').waitFor()
+	await page.waitForFunction(() =>
+		document.querySelector('tbody tr:last-child td:last-child')?.textContent === 'city-80')
+	requests.length = 0
 	const header = await page.locator('th[data-property="city"]').boundingBox()
 	const target = await page.locator('th[data-property="number"]').boundingBox()
 	await page.mouse.move(header.x + 30, header.y + 15)
@@ -138,6 +147,7 @@ try {
 		scroll: document.querySelector('table').scrollLeft
 	}))
 	const beforeDrag = await geometry()
+	await page.locator('.ps-main[data-path="note"]').scrollIntoViewIfNeeded()
 	const source = await page.locator('.ps-main[data-path="note"]').boundingBox()
 	await page.mouse.move(source.x + 20, source.y + 12)
 	await page.mouse.down()
@@ -149,11 +159,13 @@ try {
 	assert.equal(await page.locator('tbody tr:first-child td:last-child').textContent(), '')
 	await page.waitForFunction(() => [...document.querySelectorAll('tbody tr:last-child td')]
 		.some(cell => cell.textContent === 'note-80'))
-	assert.equal(requests.length, 1, 'Only values are requested while dragging')
-	assert.ok(requests[0].includes('rowIds='), 'Values arrive before table entry')
+	assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 1,
+		'Only values are requested while dragging; scrolling may save selector state')
+	assert.ok(requests.some(url => url.includes('rowIds=')), 'Values arrive before table entry')
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), false)
 	assert.deepEqual(await geometry(), beforeDrag, 'Loaded preview remains hidden without changing layout')
 	const saved = page.waitForRequest(request => request.url().includes('columns='))
+	void saved.catch(() => {})
 	await page.mouse.move(target.x + 30, target.y + 15, { steps: 10 })
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), true)
 	assert.equal(await page.locator('colgroup col[hidden]').count(), 0)
@@ -165,6 +177,7 @@ try {
 	// Abandon a hidden preview, then one filled after entry while the pointer is still held.
 	for (const entered of [false, true]) {
 		requests.length = 0
+		await page.locator('.ps-main[data-path="city"]').scrollIntoViewIfNeeded()
 		const cancelled = await page.locator('.ps-main[data-path="city"]').boundingBox()
 		await page.mouse.move(cancelled.x + 20, cancelled.y + 12)
 		await page.mouse.down()
@@ -185,8 +198,9 @@ try {
 		await page.waitForTimeout(450)
 		assert.equal(await page.locator('th[data-property="city"]').count(), 0)
 		assert.equal(await page.locator('colgroup col').count(), 4)
-		assert.equal(requests.length, 1, 'Abandoned preview only preloads values, without admission or persistence')
-		assert.ok(requests[0].includes('rowIds='))
+		assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 1,
+			'Abandoned preview only preloads values, without admission or column persistence')
+		assert.ok(requests.some(url => url.includes('rowIds=')))
 	}
 	assert.deepEqual(errors, [])
 	console.log('PASS: one initial request; hidden drag preload; reveal on entry; outside cancellation; request budgets')

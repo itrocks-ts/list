@@ -189,9 +189,12 @@ through `/list/json`. Column configuration saves use the established `columns` p
 
 The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect`, with explicit metadata, table
 addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
-navigation. It reserves pending paths, confirms accepted additions, reveals/highlights duplicates without moving focus,
-and checks row identity before insertion. Failed selection leaves the context intact. It loads only currently visible
-row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
+navigation. It reserves pending paths and confirms accepted additions. Clicking a terminal property toggles its column:
+an existing column is revealed, flashes red briefly and is removed; an unused property is appended. Relation names
+navigate,
+and selecting an existing relation object reveals/highlights its column without moving focus.
+The consumer checks row identity before insertion. Failed selection leaves the context intact. It loads only currently
+visible row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
 retry message. Clicks and desktop drags create empty columns and immediately load values asynchronously through the
 public table transaction. A new dragged column stays hidden until the pointer first enters the table, so its values can
 arrive before it appears. Drag admission waits for drop.
@@ -246,5 +249,10 @@ restoration. Custom pane adapters may implement the same optional suspension arg
 
 `node test/browser-requests.mjs` checks request counts and real mouse gestures in Chromium with synthetic HTTP data.
 It covers initial mount, click placeholders, hidden drag preloading, reveal on table entry, values for 80 loaded rows,
-outside cancellation, duplicates, reordering and removal.
+outside cancellation, terminal toggles, reordering and removal.
 Set `PS_PLAYWRIGHT_MODULE` to an installed Playwright module when using a different runtime.
+
+`node test/browser-toggle.mjs` exercises the real framework list against the synthetic recipe database on port 13316
+(`PS_DATABASE_PORT` overrides it). It starts and stops its own application instance and checks desktop keyboard, touch,
+reduced motion, horizontal reveal, removal and temporary-row transitions. `PS_TOGGLE_URL` reuses an existing instance
+of that recipe instead. The synthetic database must already be running; this test never resets it.
