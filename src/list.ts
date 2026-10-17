@@ -50,7 +50,7 @@ export class List<T extends object = object> extends Action<T>
 			await access.authorise(column.name)
 			for (const field of column.fields ?? []) await access.authorise(`${column.name}.${field}`)
 		}
-		if (request.request.data.columns !== undefined) {
+		if (request.request.data.columns !== undefined && typeof request.request.data.column !== 'string') {
 			save(this, request.request, type)
 			return this.htmlResponse('', 204)
 		}

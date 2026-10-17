@@ -36,7 +36,22 @@ async function change(page, action)
 	const saved = page.waitForResponse(response => response.url().includes('columns='))
 	void saved.catch(() => {})
 	await action()
-	assert.equal((await saved).status(), 204)
+	const response = await saved
+	const path = new URL(response.url()).searchParams.get('column')
+	assert.equal(response.status(), path ? 200 : 204, response.url())
+	if (path) {
+		const result = await response.json()
+		assert.ok(result.rows.length > 0)
+		await page.waitForFunction(path => {
+			const header = [...document.querySelectorAll('th[data-property]')]
+				.find(header => header.dataset.property === path)
+			return header && !header.classList.contains('column-add-loading')
+		}, path)
+		assert.equal(await page.locator('.column-add-error').count(), 0)
+		const values = await header(page, path).evaluate(header => [...header.closest('table').tBodies[0].rows]
+			.map(row => ({ id: row.querySelector('input[name=id]').value, html: row.cells[header.cellIndex].innerHTML })))
+		assert.deepEqual(values, result.rows.map(row => ({ html: row.html ?? '', id: String(row.id) })))
+	}
 }
 async function root(page)
 {
@@ -80,10 +95,10 @@ try {
 		assert.equal(await page.locator('.ps-clear').getAttribute('aria-label'), 'Effacer la recherche')
 		assert.ok(await row(page).evaluate(row => row.classList.contains('ps-used')))
 		if (!mobile) {
-			// The plus must reveal an existing terminal column without removing or saving it.
-			const plus = row(page, 'deliveryAddress.street').locator('.ps-add')
+			// The target must reveal an existing terminal column without removing or saving it.
+			const target = row(page, 'deliveryAddress.street').locator('.ps-locate')
 			await row(page, 'deliveryAddress.street').hover()
-			await plus.click()
+			await target.click()
 			await page.locator('th.column-add-highlight[data-property="deliveryAddress.street"]').waitFor()
 			assert.equal(await header(page, 'deliveryAddress.street').count(), 1)
 			assert.equal(await page.locator('th.column-remove-highlight').count(), 0)
@@ -110,7 +125,8 @@ try {
 					.classList.contains('column-remove-highlight')) }
 		})
 		assert.ok(flash.marked)
-		assert.ok(flash.scroll > 0 && flash.right <= flash.tableRight + 1)
+		// Reduced motion shrinks immediately and may already clamp the table's scroll position.
+		if (!mobile) assert.ok(flash.scroll > 0 && flash.right <= flash.tableRight + 1)
 		assert.equal(flash.animation, mobile ? 'none' : 'itrocks-column-remove-flash')
 		await header(page, 'deliveryAddress.street').waitFor({ state: 'detached' })
 		assert.equal((await saved).status(), 204)
@@ -128,8 +144,8 @@ try {
 		assert.equal(await header(page).count(), 0, 'Intermediate segments navigate without adding columns')
 		await root(page)
 		assert.equal(await row(page).count(), 0, 'Navigation discards unused temporary rows')
-		await main(page, 'customer').click()
-		await main(page, 'customer.address').click()
+		await row(page, 'customer').locator('.ps-open').click()
+		await row(page, 'customer.address').locator('.ps-open').click()
 		await change(page, () => main(page).click())
 		await root(page)
 		await page.locator('.ps-used[data-path="customer.address.street"]').waitFor()
@@ -152,8 +168,8 @@ try {
 		})
 		await header(page, 'note').waitFor()
 		// Recreate and remove a nested column, then verify both list lifecycle transitions.
-		await main(page, 'customer').click()
-		await main(page, 'customer.address').click()
+		await row(page, 'customer').locator('.ps-open').click()
+		await row(page, 'customer.address').locator('.ps-open').click()
 		await change(page, () => main(page).click())
 		await root(page)
 		await page.locator('.ps-used[data-path="customer.address.street"]').waitFor()
@@ -163,8 +179,8 @@ try {
 		await open(page)
 		assert.equal(await header(page).count(), 0)
 		assert.equal(await row(page).count(), 0, 'Refresh never restores a removed temporary row')
-		await main(page, 'customer').click()
-		await main(page, 'customer.address').click()
+		await row(page, 'customer').locator('.ps-open').click()
+		await row(page, 'customer.address').locator('.ps-open').click()
 		await change(page, () => main(page).click())
 		await root(page)
 		await page.locator('.ps-used[data-path="customer.address.street"]').waitFor()

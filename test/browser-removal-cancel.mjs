@@ -36,7 +36,7 @@ const server = createServer(async (request, response) => {
 			response.end(JSON.stringify({ revision: 1 }))
 			return
 		}
-		if (url.searchParams.has('columns')) { response.writeHead(204).end(); return }
+		if (url.searchParams.has('columns') && !url.searchParams.has('column')) { response.writeHead(204).end(); return }
 		if (url.searchParams.has('column')) {
 			const path = url.searchParams.get('column')
 			const result = { label: path, path, sortable: true }

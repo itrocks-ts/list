@@ -5,6 +5,7 @@ import { test }          from 'node:test'
 // Exercise the delivered consumer methods with independent port timing; no browser input claim.
 const source = readFileSync(new URL('../property-select.js', import.meta.url), 'utf8')
 	.replace(/^import .*\n/gm, '')
+globalThis.CSS ??= { escape: value => value }
 const { ListPropertySelect } = await import('data:text/javascript,' + encodeURIComponent(
 	'const normalisePath = value => value\n' + source
 ))
@@ -26,24 +27,24 @@ function fixture()
 	}
 	const consumer = Object.assign(Object.create(ListPropertySelect.prototype), {
 		article: { querySelectorAll: () => [{ dataset: { property: 'number' } }, { dataset: { property: 'city' } }] },
-		disposed: false, drag,
+		content: { querySelector: () => null }, disposed: false, drag,
 		options: { saveColumns: () => { events.push('save'); return save.promise } },
 		pending: new Map(), removals: new Map(), removedColumns: new Map(), view: { selector: {
-			search: { results: [] }, setConfiguration: () => events.push('configuration')
+			branchContexts: [], search: { results: [] }, usedProperties: [], setConfiguration: () => events.push('configuration')
 		} }
 	})
 	return { consumer, drag, events, finish, save }
 }
 
-test('pane restoration waits for both admission and durable column save', async () => {
+test('pane restoration waits for a moved column to be saved', async () => {
 	const f = fixture(), result = f.consumer.end('drag', {})
 	assert.deepEqual(f.events, [])
-	f.finish.resolve('added')
+	f.finish.resolve('moved')
 	await Promise.resolve()
 	assert.deepEqual(f.events, ['save'])
 	assert.equal(f.consumer.drag, f.drag)
 	f.save.resolve()
-	assert.equal((await result).status, 'added')
+	assert.equal((await result).status, 'moved')
 	assert.deepEqual(f.events, ['save', 'configuration', 'restore'])
 	assert.equal(f.consumer.drag, undefined)
 })
@@ -52,7 +53,7 @@ for (const phase of ['admission', 'save']) {
 	test(`rejection during ${phase} releases the pane token`, async () => {
 		const f = fixture(), result = f.consumer.end('drag', {})
 		if (phase === 'save') {
-			f.finish.resolve('added')
+			f.finish.resolve('moved')
 			await Promise.resolve()
 			f.save.reject(new Error('Save failed'))
 		}
@@ -95,14 +96,15 @@ test('a dropped nested property uses its translated path in the provisional head
 	f.consumer.drag = undefined
 	f.consumer.view.selector.search.results = [{
 		property: { label: 'nom', path: 'city.country.name' },
-		segments: [{ label: 'ville' }, { label: 'pays' }]
+		segments: [{ label: 'Facture', path: '' }, { label: 'ville', path: 'city' },
+			{ label: 'pays', path: 'city.country' }]
 	}]
 	f.consumer.pane = { suspend: () => ({ restore: () => {} }) }
 	f.consumer.options.addition = { beginExternal: source => {
 		label = source.create().header.textContent
 		return { cancel: () => {} }
 	} }
-	globalThis.document = { createElement: () => ({ dataset: {}, textContent: '' }) }
+	globalThis.document = { createElement: () => ({ dataset: {}, textContent: '', append() {}, setAttribute() {} }) }
 	try {
 		f.consumer.begin({ ...f.drag.intent, path: 'city.country.name' }, {})
 		assert.equal(label, 'ville.pays.nom')
@@ -110,31 +112,50 @@ test('a dropped nested property uses its translated path in the provisional head
 	finally { globalThis.document = document }
 })
 
-test('click inserts a placeholder and starts values without waiting for admission or saving', async () => {
-	const f = fixture(), admission = deferred(), values = deferred()
-	let source, loading
+test('context and retained rows provide the full translated path without metadata requests', () => {
+	const f = fixture()
+	const document = globalThis.document
+	globalThis.document = { createElement: () => ({ dataset: {}, textContent: '', append() {}, setAttribute() {} }) }
+	try {
+		f.consumer.view.selector.branchContexts = [
+			{ properties: [{ path: 'city', label: 'ville' }] },
+			{ properties: [{ path: 'city.country', label: 'pays' }] },
+			{ properties: [{ path: 'city.country.name', label: 'nom' }] }
+		]
+		assert.equal(f.consumer.columnSource('city.country.name').create().header.textContent, 'ville.pays.nom')
+		f.consumer.view.selector.branchContexts = []
+		f.consumer.content.querySelector = () => ({ title: 'ville.pays.nom' })
+		assert.equal(f.consumer.columnSource('city.country.name').create().header.textContent, 'ville.pays.nom')
+	}
+	finally { globalThis.document = document }
+})
+
+test('click commits before requesting values, without a separate validation or save', async () => {
+	const f = fixture(), values = deferred()
+	let loading
 	f.consumer.drag = undefined
-	f.consumer.validateColumn = () => admission.promise
 	f.consumer.loadColumn = () => { f.events.push('values'); return values.promise }
-	f.consumer.options.addition = { begin: value => {
-		source = value
+	f.consumer.options.addition = { begin: source => {
 		f.events.push('placeholder')
 		loading = source.load(new AbortController().signal)
 		return { commit: () => { f.events.push('commit'); return 'added' }, cancel: () => f.events.push('cancel') }
 	} }
 	const result = f.consumer.add('city', new AbortController().signal)
-	assert.deepEqual(f.events, ['placeholder', 'values'])
-	admission.resolve()
-	await Promise.resolve()
-	assert.deepEqual(f.events, ['placeholder', 'values', 'commit', 'save'])
-	f.save.resolve()
+	assert.deepEqual(f.events, ['placeholder', 'commit', 'configuration'])
 	assert.equal(await result, 'added')
-	assert.ok(f.events.includes('values'))
+	assert.deepEqual(f.events, ['placeholder', 'commit', 'configuration', 'values'])
 	values.resolve({ cells: [], header: {} })
 	await loading
 })
 
-test('external moves skip admission and new drags load values before drop', async () => {
+test('new drops restore the pane without waiting for their values request', async () => {
+	const f = fixture(), result = f.consumer.end('drag', {})
+	f.finish.resolve('added')
+	assert.equal((await result).status, 'added')
+	assert.deepEqual(f.events, ['configuration', 'restore'])
+})
+
+test('external moves skip admission and new drags wait until drop before loading', async () => {
 	const f = fixture()
 	f.consumer.drag = undefined
 	f.consumer.pane = { suspend: () => ({ restore: () => {} }) }
@@ -148,10 +169,12 @@ test('external moves skip admission and new drags load values before drop', asyn
 	f.consumer.cancel('drag')
 	let loaded = false
 	f.consumer.loadColumn = async () => { loaded = true; return { cells: [], header: {} } }
-	f.consumer.validateColumn = () => assert.fail('Admission must wait for the drop')
 	f.consumer.begin({ ...f.drag.intent, path: 'new' }, {})
-	void source.accept(new AbortController().signal)
-	await source.load(new AbortController().signal)
+	const loading = source.load(new AbortController().signal)
+	await Promise.resolve()
+	assert.equal(loaded, false)
+	f.consumer.cancel('drag')
+	await loading
 	assert.equal(loaded, true)
 	f.consumer.cancel('drag')
 })
@@ -239,7 +262,6 @@ for (const [name, columns, position, expected] of [
 			cellIndex: index + 1, dataset: { property: path }
 		}))
 		f.consumer.columnSource = () => ({})
-		f.consumer.validateColumn = async () => {}
 		f.consumer.options.addition = { begin: () => ({
 			header: { cellIndex: columns.length + 1 },
 			cancel: () => assert.fail('Valid placement must commit'),
@@ -249,7 +271,7 @@ for (const [name, columns, position, expected] of [
 		f.save.resolve()
 		assert.equal(await f.consumer.add('amount', signal), 'added')
 		assert.deepEqual(f.events, [...(expected === undefined ? [] : [['move', expected]]),
-			'commit', 'save', 'configuration'])
+			'commit', 'configuration'])
 		assert.equal(f.consumer.removedColumns.has('amount'), false)
 	})
 }
@@ -266,18 +288,19 @@ test('closing during removal cannot repopulate the new pane memory', async () =>
 	assert.equal(f.consumer.removedColumns.size, 0)
 })
 
-test('failed admission retains the remembered neighbours for a later retry', async () => {
+test('cancelled addition retains the remembered neighbours for a later retry', async () => {
 	const f = fixture(), position = { left: 'number', right: 'city' }
 	f.consumer.drag = undefined
 	f.consumer.removedColumns.set('amount', position)
 	f.consumer.columnSource = () => ({})
-	f.consumer.validateColumn = async () => { throw new Error('Admission refused') }
+	const abort = new AbortController()
+	abort.abort(new Error('Addition cancelled'))
 	f.consumer.options.addition = { begin: () => ({
 		cancel: () => f.events.push('cancel'),
 		commit: () => assert.fail('Rejected addition must not commit'),
 		moveTo: () => assert.fail('Rejected addition must not move')
 	}) }
-	await assert.rejects(f.consumer.add('amount', new AbortController().signal), /Admission refused/)
+	await assert.rejects(f.consumer.add('amount', abort.signal), /Addition cancelled/)
 	assert.deepEqual(f.events, ['cancel'])
 	assert.deepEqual(f.consumer.removedColumns.get('amount'), position)
 })

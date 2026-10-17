@@ -185,7 +185,8 @@ the dependency hook. The configured data source remains responsible for storage 
 `GET /<business-route>/list?column=<path>&rowIds=<comma-separated-identifiers>` uses the HTML action and returns a JSON
 column descriptor with rendered cells keyed by root id. It intersects visible ids with the current filters and mandatory
 scope, makes one projection and performs no count. Invalid selections return 400. Full entity JSON remains available
-through `/list/json`. Column configuration saves use the established `columns` parameter and return 204.
+through `/list/json`. Adding `columns=<ordered-paths>` saves the column configuration in the same request.
+Configuration-only requests return 204. The browser serialises both kinds of request to preserve the latest order.
 
 The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect`, with explicit metadata, table
 addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
@@ -199,9 +200,11 @@ An explicit addition intention always requests addition: an existing column is r
 Property names and checkbox cells toggle the same selection; chevrons and intermediate path segments navigate.
 The consumer checks row identity before insertion. Failed selection leaves the context intact. It loads only currently
 visible row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
-retry message. Clicks and desktop drags create empty columns and immediately load values asynchronously through the
-public table transaction. A new dragged column stays hidden until the pointer first enters the table, so its values can
-arrive before it appears. Drag admission waits for drop.
+discreet red background. Clicks commit the translated full-path heading and filter locally, before any server response.
+One asynchronous request
+then saves the column order and loads the values; there is no separate admission request. A new dragged column stays
+hidden until the pointer enters the table. Dropping commits it locally and starts the same combined request; cancelled
+previews make no column request. The optional `request(query, signal)` port shares the list persistence queue.
 Existing-column moves and removals only save the column configuration. The header contains each label and its filter
 together, so it uses the table addition plugin's single-header contract.
 
@@ -234,12 +237,10 @@ The browser displays recoverable persistence errors.
 
 ## External column transport
 
-The list consumer supplies immediate empty cells, authorises admission and loads all currently loaded row ids through
-the same projection/rendering route used for click additions. `validate=1` on a `column` request checks representation
-and permission without selecting records; it prevents unsupported object and nested plural paths from being confirmed
-on drop.
-Admission is independent of the optional values request. A slow or failed values request leaves valid drops accepted;
-failed cells expose `Retry values` without another addition or recent entry.
+The list consumer supplies cells containing a non-breaking space and loads all currently loaded row ids through
+one combined configuration/projection request after the local commit. A failed values request leaves the column
+in place, with a discreet red background on its data cells. The spaces remain; no error text, retry button or automatic
+retry is added. The translated full path comes from the selector's displayed row and available branch metadata.
 
 Pending paths and the active drag are reserved before asynchronous work. Used paths retain their committed order
 throughout the drag, and configuration saves exclude provisional cells. New accepted drops feed recents; moves and

@@ -13,7 +13,7 @@ const packages = fileURLToPath(new URL('../../', import.meta.url))
 const template = await readFile(resolve(packages, 'property-select/front/property-select.html'), 'utf8')
 const properties = ['number', 'amount', 'city', 'note', ...Array.from({ length: 30 }, (_, index) => `field${index}`)]
 const context = { path: '', label: 'Fixture', type: 'Fixture', properties: properties.map((name, order) => ({
-	kind: 'terminal', label: name, name, order, path: name
+	kind: 'terminal', label: name === 'city' ? 'ville' : name, name, order, path: name
 })) }
 const initial = { advice: [], contexts: [context], errors: [], generation: 'fixture-session',
 	record: { revision: 0, state: { branch: [], current: 0, query: '', recent: [],
@@ -36,10 +36,11 @@ const server = createServer(async (request, response) => {
 			response.end(JSON.stringify({ revision: 1 }))
 			return
 		}
-		if (url.searchParams.has('columns')) { response.writeHead(204).end(); return }
+		if (url.searchParams.has('columns') && !url.searchParams.has('column')) { response.writeHead(204).end(); return }
 		if (url.searchParams.has('column')) {
 			const path = url.searchParams.get('column')
-			const result = { label: path, path, sortable: true }
+			if (path === 'field0') { response.writeHead(503).end('Unavailable'); return }
+			const result = { label: path === 'city' ? 'ville' : path, path, sortable: true }
 			if (!url.searchParams.has('validate')) {
 				await new Promise(resolve => setTimeout(resolve, 350))
 				result.rows = url.searchParams.get('rowIds').split(',').map(id => ({ id, html: `${path}-${id}` }))
@@ -98,10 +99,19 @@ try {
 	assert.deepEqual(requests, ['/fixture/list'], 'Restoring a clamped selector scroll needs no request')
 	await page.locator('.ps-main[data-path="city"]').click()
 	await page.locator('th[data-property="city"]').waitFor()
-	assert.equal(await page.locator('tbody tr:first-child td:last-child').textContent(), '')
+	assert.equal(await page.locator('tbody tr:first-child td:last-child').textContent(), '\u00a0')
+	assert.equal(await page.locator('th[data-property="city"]').textContent(), 'ville')
+	const filter = page.locator('th[data-property="city"] input[name="search.city"]')
+	assert.equal(await filter.count(), 1)
+	await page.waitForTimeout(130)
+	assert.equal(await filter.isVisible(), true, 'Search appears before values arrive')
+	await filter.fill('pending')
 	await page.waitForFunction(() =>
 		document.querySelector('tbody tr:last-child td:last-child')?.textContent === 'city-80')
+	assert.equal(await filter.inputValue(), 'pending')
+	assert.equal(requests.filter(url => url.startsWith('/fixture/list?')).length, 1)
 	assert.equal(requests.filter(url => url.includes('rowIds=')).length, 1)
+	assert.ok(requests.find(url => url.includes('rowIds=')).includes('columns='))
 	assert.equal(new URL(requests.find(url => url.includes('rowIds=')), 'http://fixture').searchParams
 		.get('rowIds').split(',').length, 80, 'Fill every row through the current fetch position')
 	requests.length = 0
@@ -156,12 +166,11 @@ try {
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), false)
 	assert.equal(await page.locator('colgroup col[hidden]').count(), 1)
 	assert.deepEqual(await geometry(), beforeDrag, 'Hidden preview leaves layout and scroll unchanged')
-	assert.equal(await page.locator('tbody tr:first-child td:last-child').textContent(), '')
-	await page.waitForFunction(() => [...document.querySelectorAll('tbody tr:last-child td')]
-		.some(cell => cell.textContent === 'note-80'))
-	assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 1,
-		'Only values are requested while dragging; scrolling may save selector state')
-	assert.ok(requests.some(url => url.includes('rowIds=')), 'Values arrive before table entry')
+	assert.equal(await page.locator('tbody tr:first-child td:last-child').textContent(), '\u00a0')
+	await page.waitForTimeout(100)
+	assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 0,
+		'Dragging before drop does not request or save columns')
+	assert.equal(requests.some(url => url.includes('rowIds=')), false)
 	assert.equal(await page.locator('th[data-property="note"]').isVisible(), false)
 	assert.deepEqual(await geometry(), beforeDrag, 'Loaded preview remains hidden without changing layout')
 	const saved = page.waitForRequest(request => request.url().includes('columns='))
@@ -173,7 +182,9 @@ try {
 	await saved
 	await page.waitForFunction(() => document.querySelector('th[data-property="note"]')
 		&& [...document.querySelectorAll('tbody tr:last-child td')].some(cell => cell.textContent === 'note-80'))
+	assert.equal(requests.filter(url => url.startsWith('/fixture/list?')).length, 1)
 	assert.equal(requests.filter(url => url.includes('rowIds=')).length, 1)
+	assert.ok(requests.find(url => url.includes('rowIds=')).includes('columns='))
 	// Abandon a hidden preview, then one filled after entry while the pointer is still held.
 	for (const entered of [false, true]) {
 		requests.length = 0
@@ -188,9 +199,8 @@ try {
 			await page.mouse.move(target.x + 30, target.y + 15)
 			assert.equal(await page.locator('th[data-property="city"]').isVisible(), true)
 			assert.equal(await page.locator('tbody tr:first-child').evaluate(row =>
-				row.cells[document.querySelector('th[data-property="city"]').cellIndex].textContent), '')
-			await page.waitForFunction(() => [...document.querySelectorAll('tbody tr:last-child td')]
-				.some(cell => cell.textContent === 'city-80'))
+				row.cells[document.querySelector('th[data-property="city"]').cellIndex].textContent), '\u00a0')
+			await page.waitForTimeout(100)
 			assert.equal(await page.locator('th[data-property="city"]').isVisible(), true)
 		}
 		await page.mouse.move(700, 10)
@@ -198,11 +208,27 @@ try {
 		await page.waitForTimeout(450)
 		assert.equal(await page.locator('th[data-property="city"]').count(), 0)
 		assert.equal(await page.locator('colgroup col').count(), 4)
-		assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 1,
-			'Abandoned preview only preloads values, without admission or column persistence')
-		assert.ok(requests.some(url => url.includes('rowIds=')))
+		assert.equal(requests.filter(url => url.startsWith('/fixture/list')).length, 0,
+			'Abandoned previews make no column request')
+		assert.equal(requests.some(url => url.includes('rowIds=')), false)
 	}
+	requests.length = 0
+	await page.locator('.ps-main[data-path="field0"]').click()
+	await page.locator('td.column-add-error').first().waitFor()
+	const failed = await page.locator('td.column-add-error').evaluateAll(cells => cells.map(cell => ({
+		background: getComputedStyle(cell).backgroundColor, outline: getComputedStyle(cell).outlineStyle,
+		text: cell.textContent
+	})))
+	assert.equal(failed.length, 80)
+	assert.ok(failed.every(cell => cell.text === '\u00a0' && cell.outline === 'none'
+		&& cell.background !== 'rgba(0, 0, 0, 0)'), JSON.stringify(failed[0]))
+	assert.equal(await page.locator('.column-retry').count(), 0)
+	assert.equal(await page.locator('th[data-property="field0"] input').isVisible(), true)
+	assert.equal(await page.locator('td.column-add-error.column-add-highlight').count(), 0)
+	await page.waitForTimeout(1200)
+	assert.equal(requests.filter(url => new URL(url, 'http://fixture').searchParams.get('column') === 'field0').length,
+		1, 'A failed load never retries automatically')
 	assert.deepEqual(errors, [])
-	console.log('PASS: one initial request; hidden drag preload; reveal on entry; outside cancellation; request budgets')
+	console.log('PASS: one initial request; single combined column request; reveal on entry; outside cancellation; request budgets')
 }
 finally { await browser?.close(); await new Promise(resolve => server.close(resolve)) }

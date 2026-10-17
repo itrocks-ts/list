@@ -200,7 +200,9 @@ test('visible row projection intersects mandatory scope and preserves full JSON 
 	})
 	const list = new List()
 	list.jsonResponse = (body, status = 200) => ({ body, status })
-	const response = await list.html(request({ column: 'number', rowIds: '1,2' }), { active: true })
+	const session = {}
+	const response = await list.html(request({ column: 'number', columns: 'number', rowIds: '1,2' }, session), { active: true })
+	assert.deepEqual(session.list[require('@itrocks/route').routeOf(Invoice)].columns, ['number'])
 	assert.equal(response.status, 200)
 	assert.deepEqual(response.body.rows, [{ html: 'INV-1', id: 1 }])
 	assert.deepEqual(calls[0].columns, ['number'])

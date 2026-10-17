@@ -14,19 +14,22 @@ build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	table => {
 		let saving = Promise.resolve()
+		const request = (query: URLSearchParams, signal?: AbortSignal): Promise<Response> => {
+			const form = table.closest('form')!
+			const result = saving.then(() => fetch(`${form.action}?${query}`, { keepalive: true, signal }))
+			saving = result.then(() => {}, () => {})
+			return result
+		}
 		const saveColumns = (): Promise<void> => {
 			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(
 				':scope > th[data-property]:not(.column-add-provisional)'
 			)
 			const form    = table.closest('form')
 			if (!columns || !form) return Promise.resolve()
-			const properties = Array.from(columns, column => encodeURIComponent(column.dataset.property ?? ''))
-			const url = form.action + '?columns=' + properties.join(',')
-			saving = saving.catch(() => {}).then(async () => {
-				const response = await fetch(url, { keepalive: true })
+			const properties = Array.from(columns, column => column.dataset.property ?? '')
+			return request(new URLSearchParams({ columns: properties.join(',') })).then(response => {
 				if (!response.ok) throw new Error('Unable to save columns')
 			})
-			return saving
 		}
 		const tableColumnReorder = new TableColumnReorder({
 			isReorderable: header => header.dataset.property !== undefined,
@@ -48,7 +51,7 @@ build<HTMLTableElement>(
 			]
 		})
 		table.dispatchEvent(new CustomEvent('itrocks:list-ready', {
-			bubbles: true, detail: { addition, instance, saveColumns }
+			bubbles: true, detail: { addition, instance, request, saveColumns }
 		}))
 		table.addEventListener('click', event => {
 			const element = event.target
