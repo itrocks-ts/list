@@ -117,7 +117,7 @@ try {
 	requests.length = 0
 	await page.locator('.ps-check[data-path="city"]').click()
 	await page.locator('th[data-property="city"].column-remove-highlight').waitFor()
-	assert.deepEqual(requests, [], 'Removal waits for the red flash before saving')
+	assert.equal(requests.length, 1, 'Removal saves immediately during the red flash')
 	await page.locator('th[data-property="city"]').waitFor({ state: 'detached' })
 	await page.waitForTimeout(80)
 	assert.equal(requests.length, 1, 'Removal only saves columns')

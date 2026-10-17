@@ -25,7 +25,7 @@ export type ListSelectorOptions = {
 	metadata: MetadataProvider
 	mountSelector(content: HTMLElement, title: string): PaneHandle
 	request?(query: URLSearchParams, signal: AbortSignal): Promise<Response>
-	saveColumns(): Promise<void>
+	saveColumns(paths?: readonly string[]): Promise<void>
 	templateUrl?: string
 }
 type ColumnResponse = { label: string; path: string; sortable: boolean;
@@ -303,14 +303,22 @@ export class ListPropertySelect implements ConsumerPort
 		// Publish the unchecked state before starting the table's removal flash.
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
 		try {
-			const removed = await this.options.addition.remove(path, AbortSignal.any([signal, removal.signal]))
+			const saving = this.options.saveColumns(this.paths())
+			const animation = this.options.addition.remove(path, AbortSignal.any([signal, removal.signal]))
+			const [removed] = await Promise.all([animation, saving])
 			if (!removed) {
-				if (removal.signal.aborted && !signal.aborted && !this.disposed) return 'existing'
+				if (removal.signal.aborted && !signal.aborted && !this.disposed) {
+					await this.options.saveColumns(this.paths())
+					return 'existing'
+				}
 				throw new Error('Column removal cancelled')
 			}
 			if (!this.disposed && positions === this.removedColumns && index >= 0) positions.set(path, position)
-			await this.options.saveColumns()
 			return 'removed'
+		}
+		catch (error) {
+			removal.abort()
+			throw error
 		}
 		finally {
 			if (this.removals.get(path) === removal) this.removals.delete(path)

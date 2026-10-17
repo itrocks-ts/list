@@ -192,7 +192,9 @@ The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect
 addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
 navigation. It reserves pending paths and confirms accepted additions. The checkbox, its cell and the property name
 toggle terminal and relation columns. The checkbox clears immediately before the red removal flash. Reselecting during that flash cancels removal,
-checks the property again and highlights the retained column green without saving a removal.
+checks the property again and highlights the retained column green, then saves the restored configuration.
+The removal configuration is sent at the initial click, independently of the animation; deleting the cells sends no
+additional request.
 After a completed removal, a later click returns the column immediately right of its former left neighbour, or left of its former right neighbour if the left one is absent. If neither remains,
 it is appended. Neighbours are kept only in this pane instance's memory and cleared on folding, closure or disposal;
 they never enter session state. Drag placement continues to follow the drop position.
@@ -256,7 +258,7 @@ restoration. Custom pane adapters may implement the same optional suspension arg
 It covers initial mount, click placeholders, hidden drag preloading, reveal on table entry, values for 80 loaded rows,
 outside cancellation, terminal toggles, reordering and removal.
 `node test/browser-removal-cancel.mjs` checks immediate unchecking and cancellation during the red flash through
-checkbox, cell and name clicks, for terminal and relation columns, without saving a cancelled removal.
+checkbox, cell and name clicks, for terminal and relation columns, with an immediate removal save followed by a restored configuration save.
 `node test/browser-column-positions.mjs` checks neighbour-based reinsertion in the real table, both fallbacks,
 and memory expiry on closure, including closure during a pending removal. It starts its own synthetic HTTP fixture.
 Set `PS_PLAYWRIGHT_MODULE` to an installed Playwright module when using a different runtime.

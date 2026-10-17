@@ -20,21 +20,21 @@ build<HTMLTableElement>(
 			saving = result.then(() => {}, () => {})
 			return result
 		}
-		const saveColumns = (): Promise<void> => {
+		const saveColumns = (paths?: readonly string[]): Promise<void> => {
 			const columns = table.tHead?.rows[0].querySelectorAll<HTMLTableCellElement>(
 				':scope > th[data-property]:not(.column-add-provisional)'
 			)
 			const form    = table.closest('form')
 			if (!columns || !form) return Promise.resolve()
-			const properties = Array.from(columns, column => column.dataset.property ?? '')
+			const properties = paths ?? Array.from(columns, column => column.dataset.property ?? '')
 			return request(new URLSearchParams({ columns: properties.join(',') })).then(response => {
 				if (!response.ok) throw new Error('Unable to save columns')
 			})
 		}
 		const tableColumnReorder = new TableColumnReorder({
 			isReorderable: header => header.dataset.property !== undefined,
-			onRemove:      saveColumns,
-			onReorder:     saveColumns
+			onRemove:      () => saveColumns(),
+			onReorder:     () => saveColumns()
 		})
 		const tableLink = new TableLink({
 			call: url => xTargetCall(url, 'main'),

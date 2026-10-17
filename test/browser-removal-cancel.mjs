@@ -102,6 +102,7 @@ try {
 			requests.length = 0
 			await row.locator(control).click({ position: { x: 2, y: 2 } })
 			await page.locator(`th[data-property="${path}"].column-remove-highlight`).waitFor()
+			assert.equal(requests.filter(url => url.includes('columns=')).length, 1)
 			assert.equal(await row.locator('.ps-check').isChecked(), false)
 			assert.equal(await row.evaluate(node => node.classList.contains('ps-used')), false)
 			assert.equal(await row.locator('.ps-locate').boundingBox(), null)
@@ -112,7 +113,9 @@ try {
 			await page.waitForTimeout(400)
 			assert.deepEqual(await page.locator('thead [data-property]').evaluateAll(headers =>
 				headers.map(header => header.dataset.property)), original)
-			assert.equal(requests.filter(url => url.includes('columns=')).length, 0)
+			assert.deepEqual(requests.filter(url => url.includes('columns=')).map(url =>
+				new URL(url, 'http://localhost').searchParams.get('columns')),
+				[original.filter(column => column !== path).join(','), original.join(',')])
 			console.log('PASS immediate uncheck and cancellation', path, control)
 		}
 	}
