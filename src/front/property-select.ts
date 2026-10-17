@@ -52,17 +52,18 @@ export class ListPropertySelect implements ConsumerPort
 	{
 		const content = document.createElement('div')
 		this.button = article.querySelector<HTMLButtonElement>('.add-column')!
-		this.pane = options.mountSelector(content, 'Add columns')
 		const initial = article.dataset.selectorBootstrap
 			? JSON.parse(decodeURIComponent(article.dataset.selectorBootstrap)) as {
-				generation: string; record: StateRecord; template: string
+				generation: string; record: StateRecord; template: string; translations?: Record<string, string>
 			} : undefined
+		const translate = (text: string) => initial?.translations?.[text] ?? text
+		this.pane = options.mountSelector(content, translate('Add columns'))
 		this.view = new PropertySelectView(content, {
 			consumer: this, metadata: options.metadata, root: article.dataset.propertyRoot!,
 			advice: options.advice, stateKey: article.dataset.selectorKey!, stateMode: 'session',
 			stateStore: new HttpStateStore(undefined, undefined, initial && {
 				...initial, key: article.dataset.selectorKey!
-			}), usedPaths: this.paths()
+			}), translate, usedPaths: this.paths()
 		}, { template: initial?.template, templateUrl: options.templateUrl })
 		this.observer = new MutationObserver(records => {
 			if (this.drag && records.some(record => (record.target as Element).tagName === 'TBODY'))
@@ -301,8 +302,11 @@ export class ListPropertySelect implements ConsumerPort
 					|| selector.search.results.find(result => result.property.path === path)?.property
 					|| selector.usedProperties.find(property => property.path === path)
 				const existing = this.paths().includes(path)
-				const operation = existing && property?.kind === 'terminal'
-					? this.remove(path, signal) : existing ? Promise.resolve('existing' as const) : this.add(path, signal)
+				const operation = existing && (property?.kind === 'terminal') && (intent.action !== 'add')
+					? this.remove(path, signal)
+					: existing
+						? Promise.resolve('existing' as const)
+						: this.add(path, signal)
 				this.pending.set(path, operation)
 				try { status = await operation }
 				finally { if (this.pending.get(path) === operation) this.pending.delete(path) }

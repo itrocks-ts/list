@@ -180,6 +180,22 @@ test('select toggles existing terminal columns once while repeated clicks share 
 	assert.deepEqual(f.events, ['remove', 'save', 'configuration'])
 })
 
+test('plus keeps existing terminal columns and reveals them without saving or removing', async () => {
+	const f = fixture(), signal = new AbortController().signal
+	f.consumer.drag = undefined
+	f.consumer.view.selector.context = { properties: [{ kind: 'terminal', path: 'city' }] }
+	f.consumer.view.selector.usedProperties = []
+	f.consumer.options.addition = {
+		remove: () => assert.fail('Plus must never remove an existing column'),
+		reveal: path => f.events.push(['reveal', path]),
+		highlight: path => f.events.push(['highlight', path])
+	}
+	const outcome = await f.consumer.select({ action: 'add', id: 'plus', path: 'city', root: 'invoice' }, signal)
+	assert.equal(outcome.status, 'existing')
+	assert.deepEqual(f.events, [['reveal', 'city'], ['highlight', 'city']])
+	assert.equal(f.consumer.pending.size, 0)
+})
+
 test('select keeps existing relation columns and reveals them without navigation', async () => {
 	const f = fixture(), signal = new AbortController().signal
 	f.consumer.drag = undefined

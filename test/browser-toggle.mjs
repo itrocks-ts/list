@@ -63,7 +63,7 @@ try {
 	await ready(origin + '/property-select-invoice')
 	browser = await chromium.launch({ chromiumSandbox: true, headless: true })
 	for (const mobile of [false, true]) {
-		const context = await browser.newContext({ hasTouch: mobile, isMobile: mobile,
+		const context = await browser.newContext({ hasTouch: mobile, isMobile: mobile, locale: 'fr-FR',
 			reducedMotion: mobile ? 'reduce' : 'no-preference',
 			viewport: { width: mobile ? 390 : 1000, height: 844 } })
 		const page = await context.newPage()
@@ -75,7 +75,21 @@ try {
 		assert.equal(response.status(), 204)
 		await page.reload()
 		await open(page)
+		assert.equal(await page.locator('.right-pane-title-bar > h2').textContent(), 'Ajouter des colonnes')
+		assert.equal(await page.locator('.ps-clear').getAttribute('title'), 'Effacer la recherche')
+		assert.equal(await page.locator('.ps-clear').getAttribute('aria-label'), 'Effacer la recherche')
 		assert.ok(await row(page).evaluate(row => row.classList.contains('ps-used')))
+		if (!mobile) {
+			// The plus must reveal an existing terminal column without removing or saving it.
+			const plus = row(page, 'deliveryAddress.street').locator('.ps-add')
+			await row(page, 'deliveryAddress.street').hover()
+			await plus.click()
+			await page.locator('th.column-add-highlight[data-property="deliveryAddress.street"]').waitFor()
+			assert.equal(await header(page, 'deliveryAddress.street').count(), 1)
+			assert.equal(await page.locator('th.column-remove-highlight').count(), 0)
+			await page.waitForTimeout(400)
+			assert.equal(await header(page, 'deliveryAddress.street').count(), 1)
+		}
 		await page.locator('table.objects').evaluate(table => { table.scrollLeft = 0 })
 		const before = await header(page, 'deliveryAddress.street').boundingBox()
 		const table = await page.locator('table.objects').boundingBox()
