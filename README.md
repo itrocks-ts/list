@@ -272,3 +272,24 @@ Set `PS_PLAYWRIGHT_MODULE` to an installed Playwright module when using a differ
 (`PS_DATABASE_PORT` overrides it). It starts and stops its own application instance and checks desktop keyboard, touch,
 reduced motion, horizontal reveal, removal and temporary-row transitions. `PS_TOGGLE_URL` reuses an existing instance
 of that recipe instead. The synthetic database must already be running; this test never resets it.
+
+## Component column batches
+
+Selecting a component group sends one request with `loadColumns` listing missing paths, `columns` containing the
+complete final configuration and `rowIds` identifying visible roots. The response contains `columns`, each with
+`path`, `label`, `sortable` and rendered `rows`. Empty `loadColumns` saves group removals without querying records.
+Failed batch projections preserve the saved configuration. Checkboxes update optimistically before metadata or HTTP
+requests, for both individual selections and groups. The host commits placeholders and starts the shared green flash
+before the values request; early values remain masked until the flash finishes, while late values appear immediately.
+Removal starts one red flash after publishing the unchecked state, then sends the configuration request. Front-end
+columns disappear at the animation deadline even if that request is still pending. Group actions use one HTTP request.
+
+Sub-properties reached through one collection marked `@Component` are projected together when its element type
+has one matching `@Composite` back-reference. The list reads visible root identities once, then all requested fields
+in one query per component collection, restricted to those identities. Singular ancestors and related object labels
+share these queries. Values retain component order and duplicates; these columns are not sortable.
+The same projection is used when reloading the list or adding an individual component sub-property.
+
+`test/browser-component-batch.mjs` verifies real browser interactions, HTTP request counts, MySQL query counts,
+rendered values, mandatory row scope, partial selection, removal and session restoration. It creates and cleans up
+its own temporary database and server using the existing selector integration recipe.

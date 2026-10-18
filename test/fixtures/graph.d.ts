@@ -2,6 +2,7 @@ export declare class Country {
 	name: string
 }
 export declare class City {
+	children: City[]
 	country: Country
 	name: string
 	parent: City

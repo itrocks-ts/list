@@ -274,3 +274,65 @@ test('external admission validates representation and authorisation without load
 	}
 	finally { listDependsOn({ access: async () => ({ authorise: async () => {} }) }) }
 })
+
+test('batch columns project all requested fields once and save the final configuration', async () => {
+	const queries = []
+	storage.dataSource = () => ({ select: async (_type, selections, search, options) => {
+		queries.push({ selections, search, options })
+		return { rootType: Invoice, columns: selections.map(path => ({ path, kind: 'scalar' })), rows: [
+			{ rootId: 1, cells: [{ kind: 'value', value: 'INV-1' }, { kind: 'value', value: 'Paris' }] }
+		] }
+	} })
+	const session = {}
+	const list = new List()
+	list.jsonResponse = (body, status = 200) => ({ body, status })
+	const response = await list.html(request({ columns: 'number,city.name',
+		loadColumns: 'number,city.name', rowIds: '1,2' }, session), { active: true })
+	assert.equal(response.status, 200)
+	assert.equal(queries.length, 1)
+	assert.deepEqual(queries[0].selections, ['number', 'city.name'])
+	assert.deepEqual(queries[0].options[0].ids, ['1', '2'])
+	assert.equal(queries[0].search.active, true)
+	assert.deepEqual(response.body.columns.map(column => column.rows), [
+		[{ html: 'INV-1', id: 1 }], [{ html: 'Paris', id: 1 }]
+	])
+	const removed = new List()
+	removed.jsonResponse = list.jsonResponse
+	assert.deepEqual((await removed.html(request({ columns: 'number', loadColumns: '', rowIds: '1' }, session))).body,
+		{ columns: [] })
+	assert.equal(queries.length, 1, 'Batch removal must not read records')
+	assert.deepEqual(session.list[require('@itrocks/route').routeOf(Invoice)].columns, ['number'])
+	storage.dataSource = () => ({ select: async () => { throw new Error('Database unavailable') } })
+	const failing = new List()
+	failing.jsonResponse = list.jsonResponse
+	assert.equal((await failing.html(request({ columns: 'number,city.name',
+		loadColumns: 'city.name', rowIds: '1' }, session))).status, 400)
+	assert.deepEqual(session.list[require('@itrocks/route').routeOf(Invoice)].columns, ['number'],
+		'A failed projection must preserve the saved columns')
+})
+
+test('nested component columns share their singular parent identity and one component query', async () => {
+	const { Composite } = require('@itrocks/composition')
+	Component()(City.prototype, 'children')
+	Composite()(City.prototype, 'parent')
+	const calls = []
+	storage.dataSource = () => ({ select: async (type, selections, search) => {
+		calls.push({ type, selections, search })
+		return { rootType: type, columns: selections.map(selection => ({
+			kind: typeof selection === 'string' ? 'scalar' : 'object',
+			path: typeof selection === 'string' ? selection : selection.path
+		})), rows: type === Invoice
+			? [{ rootId: 1, cells: [{ kind: 'value', value: { id: 7 } }] },
+				{ rootId: 2, cells: [{ kind: 'absent', at: 'city' }] }]
+			: [{ rootId: 9, cells: [{ kind: 'value', value: { id: 7 } },
+				{ kind: 'value', value: 'Paris' }, { kind: 'value', value: '75001' }] }] }
+	} })
+	const columns = ['city.children.name', 'city.children.postcode'].map(path => new ListColumn(Invoice, path))
+	const result = await projectColumns(Invoice, columns, {}, [])
+	assert.equal(calls.length, 2)
+	assert.deepEqual(calls[0].selections, [{ path: 'city', objectFields: [] }])
+	assert.deepEqual(calls[1].search, { parent: [7] })
+	assert.deepEqual(await Promise.all(columns.map((column, index) => column.output(result.rows[0].cells[index]))),
+		['Paris', '75001'])
+	assert.deepEqual(result.rows[1].cells.map(cell => cell.value), [[], []])
+})

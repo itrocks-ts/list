@@ -1,11 +1,15 @@
+import { inherits }                    from '@itrocks/class-type'
 import { Type }                        from '@itrocks/class-type'
 import { displayOf as classDisplayOf } from '@itrocks/class-view'
 import { representativeOf }            from '@itrocks/class-view'
 import { representativeValueOf }       from '@itrocks/class-view'
 import { componentOf }                 from '@itrocks/composition'
+import { compositeOf }                 from '@itrocks/composition'
 import { HtmlContainer }               from '@itrocks/core-transformers'
 import { storeOutput }                 from '@itrocks/core-transformers'
 import { displayOf }                   from '@itrocks/property-view'
+import { ReflectClass }                from '@itrocks/reflect'
+import { ReflectProperty }             from '@itrocks/reflect'
 import { ReflectPropertyPath }         from '@itrocks/reflect-path'
 import { resolvePropertyPath }         from '@itrocks/reflect-path'
 import { ProjectionCell }              from '@itrocks/storage'
@@ -52,6 +56,7 @@ export function representationFields(
 export class ListColumn
 {
 
+	readonly component?: { column: ListColumn; inverse: string; parent: string; path: string; type: Type }
 	readonly field: string
 	readonly fields?: readonly string[]
 	readonly label: string
@@ -69,15 +74,35 @@ export class ListColumn
 		const resolved = resolvePropertyPath(root, name)
 		this.multiple = resolved.targetMultiplicity === 'many'
 		this.sortable = !this.multiple
-		if (resolved.targetMultiplicity !== 'one' && !(this.multiple && resolved.segments.length === 1)) {
+		if (this.multiple && resolved.segments.length > 1) {
+			const index = resolved.segments.findIndex(property => property.relation?.targetMultiplicity === 'many')
+			const property = resolved.segments[index]
+			const target = property?.relation?.target
+			if (target && componentOf(property.class.type, property.name) && index < resolved.segments.length - 1) {
+				const inverses = Object.keys(new ReflectClass(target).propertyTypes).filter(name => {
+					if (!compositeOf(target, name as never)) return false
+					const relation = new ReflectProperty(target, name as never).relation
+					return relation?.target && inherits(property.class.type, relation.target)
+				})
+				if (inverses.length === 1) {
+					const column = new ListColumn(target, name.split('.').slice(index + 1).join('.'))
+					if (!column.multiple) this.component = {
+						column, inverse: inverses[0], parent: name.split('.').slice(0, index).join('.'),
+						path: name.split('.').slice(0, index + 1).join('.'), type: target
+					}
+				}
+			}
+		}
+		if (resolved.targetMultiplicity !== 'one' && !(this.multiple && resolved.segments.length === 1)
+			&& !this.component) {
 			throw new SelectionError(
-				resolved.targetMultiplicity === 'many' ? 'multiple-values' : 'unsupported-selection',
-				name
+				resolved.targetMultiplicity === 'many' ? 'multiple-values' : 'unsupported-selection', name
 			)
 		}
 		this.property = new ReflectPropertyPath(root, name as never)
 		this.target = resolved.target
 		this.label = resolved.segments.map(property => tr(displayOf(property.class.type, property.name))).join('.')
+		if (this.component) this.fields = this.component.column.fields
 		if (resolved.target && !this.multiple)
 			this.fields = representationFields(resolved.target, [], resolved.property)
 	}
@@ -86,6 +111,12 @@ export class ListColumn
 	{
 		if (cell.kind === 'absent') return ''
 		if (cell.kind === 'unloaded') return '<span class="unavailable">Unavailable</span>'
+		if (this.component) {
+			const cells = cell.value as ProjectionCell[]
+			const values = await Promise.all(cells.map(cell => this.component!.column.output(cell)))
+			return multipleOutputOf(this.property.class.type, this.property.name) === 'lines'
+				? '<ul>' + values.map(value => `<li>${value}</li>`).join('') + '</ul>' : values.join(', ')
+		}
 		if (this.fields && this.fields.some(field => !cell.loadedFields?.includes(field)))
 			throw new SelectionError('unsupported-selection', this.name)
 		if (this.multiple && componentOf(this.property.class.type, this.property.name)) {

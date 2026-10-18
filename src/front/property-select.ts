@@ -36,6 +36,7 @@ export class ListPropertySelect implements ConsumerPort
 {
 
 	private readonly abort = new AbortController()
+	private batch = false
 	private readonly button: HTMLButtonElement
 	private readonly content = document.createElement('div')
 	private disposed = false
@@ -86,21 +87,41 @@ export class ListPropertySelect implements ConsumerPort
 
 	private async loadColumn(path: string, signal: AbortSignal): Promise<ColumnContent>
 	{
+		return (await this.loadColumns([path], this.paths(), signal, true)).get(path)!
+	}
+
+	private async loadColumns(
+		paths: readonly string[], columns: readonly string[], signal: AbortSignal, single = false
+	): Promise<Map<string, ColumnContent>>
+	{
 		const form = this.article.querySelector<HTMLFormElement>('form')!
 		const table = this.article.querySelector<HTMLTableElement>('table.objects')!
 		const rows = [...table.tBodies[0].rows]
 		const ids = rows.map(row => row.querySelector<HTMLInputElement>('input[name=id]')!.value)
-		const query = new URLSearchParams({ column: path, columns: this.paths().join(','), rowIds: ids.join(',') })
+		const query = new URLSearchParams({ columns: columns.join(','), rowIds: ids.join(',') })
+		query.set(single ? 'column' : 'loadColumns', paths.join(','))
 		const combined = AbortSignal.any([signal, this.abort.signal])
 		const response = this.options.request
 			? await this.options.request(query, combined)
 			: await fetch(`${form.action}?${query}`, { signal: combined })
-		const result = await response.json() as ColumnResponse & { error?: string }
-		if (!response.ok) throw new Error(result.error ?? 'Column unavailable')
+		if (!response.ok) {
+			const result = await response.json() as { error?: string }
+			throw new Error(result.error ?? 'Column unavailable')
+		}
+		const result = single ? [await response.json() as ColumnResponse]
+			: (await response.json() as { columns: ColumnResponse[] }).columns
 		signal.throwIfAborted()
 		if (this.disposed || !this.article.isConnected || rows.some((row, index) => table.tBodies[0].rows[index] !== row)
 			|| rows.length !== table.tBodies[0].rows.length) throw new Error('The row view changed; try again')
-		if (result.path !== path) throw new Error('Mismatched column response')
+		if (!Array.isArray(result) || result.length !== paths.length
+			|| paths.some(path => result.filter(column => column.path === path).length !== 1))
+			throw new Error('Mismatched column response')
+		return new Map(result.map(column => [column.path, this.columnContent(column, ids, table)]))
+	}
+
+	private columnContent(result: ColumnResponse, ids: readonly string[], table: HTMLTableElement): ColumnContent
+	{
+		const path = result.path
 		const values = new Map(result.rows.map(row => [String(row.id), row.html]))
 		if (ids.some(id => !values.has(id))) throw new Error('The row scope changed; reload the list')
 		const header = document.createElement('th')
@@ -127,9 +148,12 @@ export class ListPropertySelect implements ConsumerPort
 		return { cells, header }
 	}
 
-	private add(path: string, signal: AbortSignal, options: ColumnCreationOptions = {}): 'added' | 'existing'
+	private add(
+		path: string, signal: AbortSignal, options: ColumnCreationOptions = {}, load?: ColumnSource['load']
+	): 'added' | 'existing'
 	{
 		const source = this.columnSource(path)
+		if (load) source.load = load
 		const operation = this.options.addition.begin(source, options)
 		try {
 			signal.throwIfAborted()
@@ -150,7 +174,7 @@ export class ListPropertySelect implements ConsumerPort
 			}
 			const outcome = operation.commit()
 			this.removedColumns.delete(path)
-			this.view.selector.setConfiguration({ usedPaths: this.paths() })
+			if (!this.batch) this.view.selector.setConfiguration({ usedPaths: this.paths() })
 			return outcome
 		}
 		catch (error) {
@@ -161,7 +185,7 @@ export class ListPropertySelect implements ConsumerPort
 
 	begin(intent: SelectionIntent, sample: PointerSample): void
 	{
-		if (this.disposed || this.drag || this.pending.size) throw new Error('A column operation is pending')
+		if (this.disposed || this.batch || this.drag || this.pending.size) throw new Error('A column operation is pending')
 		const path = normalisePath(intent.path)
 		const added = !this.paths().includes(path)
 		const suspension = this.pane.suspend({ mobileOnly: true })
@@ -310,9 +334,12 @@ export class ListPropertySelect implements ConsumerPort
 		// Publish the unchecked state before starting the table's removal flash.
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
 		try {
-			const saving = this.options.saveColumns(this.paths())
 			const animation = this.options.addition.remove(path, AbortSignal.any([signal, removal.signal]))
-			const [removed] = await Promise.all([animation, saving])
+			const saving = this.options.saveColumns(this.paths())
+			const [animationResult, saved] = await Promise.allSettled([animation, saving])
+			if (animationResult.status === 'rejected') throw animationResult.reason
+			if (saved.status === 'rejected') throw saved.reason
+			const removed = animationResult.value
 			if (!removed) {
 				if (removal.signal.aborted && !signal.aborted && !this.disposed) {
 					await this.options.saveColumns(this.paths())
@@ -337,7 +364,7 @@ export class ListPropertySelect implements ConsumerPort
 	{
 		const path = normalisePath(intent.path)
 		try {
-			if (this.drag) throw new Error('A column transport is pending')
+			if (this.drag || this.batch) throw new Error('A column operation is pending')
 			let status: 'added' | 'existing' | 'removed'
 			const pending = this.pending.get(path)
 			if (pending) {
@@ -375,6 +402,61 @@ export class ListPropertySelect implements ConsumerPort
 		}
 		catch (error) {
 			return { ...intent, message: error instanceof Error ? error.message : 'Column unavailable', status: 'rejected' }
+		}
+	}
+
+	async selectMany(intents: readonly SelectionIntent[], signal: AbortSignal): Promise<readonly Outcome[]>
+	{
+		if (!intents.length) return []
+		if (this.batch || this.drag || this.pending.size || this.disposed)
+			return intents.map(intent => ({ ...intent, status: 'rejected', message: 'A column operation is pending' }))
+		this.batch = true
+		const previous = this.paths()
+		const added = intents.filter(intent => !previous.includes(intent.path)).map(intent => intent.path)
+		const removed = intents.filter(intent => previous.includes(intent.path) && intent.action !== 'add')
+			.map(intent => intent.path)
+		const paths = [...previous.filter(path => !removed.includes(path)), ...added]
+		const abort = new AbortController()
+		const combined = AbortSignal.any([signal, this.abort.signal, abort.signal])
+		let receive!: (content: Map<string, ColumnContent>) => void
+		let fail!: (error: unknown) => void
+		const content = new Promise<Map<string, ColumnContent>>((resolve, reject) => { receive = resolve; fail = reject })
+		void content.catch(() => {})
+		try {
+			for (const path of removed) this.removals.set(path, abort)
+			for (const path of added) {
+				let first = true
+				this.add(path, combined, { effects: 'deferred' }, signal => {
+					if (!first) return this.loadColumn(path, signal)
+					first = false
+					return content.then(content => content.get(path)!)
+				})
+			}
+			this.view.selector.setConfiguration({ usedPaths: this.paths() })
+			if (added.length) this.options.addition.reveal(added.at(-1)!)
+			this.options.addition.highlightMany(added, true)
+			const animation = removed.length ? this.options.addition.removeMany(removed, combined) : Promise.resolve(true)
+			const request = this.loadColumns(added, paths, combined).then(receive, error => { fail(error); throw error })
+			const [animated, loaded] = await Promise.allSettled([animation, request])
+			if (animated.status === 'rejected') throw animated.reason
+			if (loaded.status === 'rejected') throw loaded.reason
+			if (!animated.value) throw new Error('Column removal cancelled')
+			for (const path of removed) {
+				const index = previous.indexOf(path)
+				this.removedColumns.set(path, { left: previous[index - 1], right: previous[index + 1] })
+			}
+			return intents.map(intent => ({ ...intent, status: added.includes(intent.path) ? 'added'
+				: removed.includes(intent.path) ? 'removed' : 'existing' }))
+		}
+		catch (error) {
+			fail(error)
+			return intents.map(intent => ({ ...intent, status: 'rejected',
+				message: error instanceof Error ? error.message : 'Columns unavailable' }))
+		}
+		finally {
+			for (const path of removed) if (this.removals.get(path) === abort) this.removals.delete(path)
+			this.batch = false
+			if (!this.disposed) this.view.selector.setConfiguration({ usedPaths: this.paths() })
 		}
 	}
 

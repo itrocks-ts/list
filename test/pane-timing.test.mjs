@@ -222,14 +222,14 @@ test(`select toggles existing ${kind} columns after publishing the unchecked sta
 	}
 	const intent = { id: 'click', path: 'city', root: 'invoice' }
 	const first = f.consumer.select(intent, signal)
-	assert.deepEqual(f.events, ['configuration', 'save', 'remove'])
+	assert.deepEqual(f.events, ['configuration', 'remove', 'save'])
 	assert.deepEqual(f.consumer.paths(), ['number'])
 	f.consumer.article.querySelectorAll = () => [{ dataset: { property: 'number' } }]
 	removal.resolve(true)
 	await Promise.resolve()
 	f.save.resolve()
 	assert.equal((await first).status, 'removed')
-	assert.deepEqual(f.events, ['configuration', 'save', 'remove', 'configuration'])
+	assert.deepEqual(f.events, ['configuration', 'remove', 'save', 'configuration'])
 })
 
 test('plus keeps existing terminal columns and reveals them without saving or removing', async () => {
@@ -355,7 +355,7 @@ for (const kind of ['relation', 'terminal']) {
 		assert.deepEqual(configurations.at(-1), ['number', 'city'])
 		assert.equal((await first).status, 'existing')
 		assert.equal((await second).status, 'existing')
-		assert.deepEqual(f.events, ['save', 'red', 'cancel', 'save', 'green', 'green'])
+		assert.deepEqual(f.events, ['red', 'save', 'cancel', 'save', 'green', 'green'])
 		assert.equal(f.consumer.removedColumns.size, 0)
 		assert.equal(f.consumer.pending.size, 0)
 		assert.equal(f.consumer.removals.size, 0)

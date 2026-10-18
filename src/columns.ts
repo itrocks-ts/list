@@ -7,6 +7,8 @@ import { Identifiers }      from '@itrocks/storage'
 import { ProjectionCell }   from '@itrocks/storage'
 import { ProjectionResult } from '@itrocks/storage'
 import { SearchType }       from '@itrocks/storage'
+import { Selection }        from '@itrocks/storage'
+import { Sort }             from '@itrocks/storage'
 import { Parameter }        from './parameter'
 import { ListColumn }       from './projection'
 
@@ -101,11 +103,48 @@ export async function projectColumns<T extends object>(
 ): Promise<ProjectionResult<T>>
 {
 	const singular = columns.filter(column => !column.multiple)
-	const result = await dataSource().select(type, singular.map(column => column.selection()), search, options)
+	const selections: Selection[] = singular.map(column => column.selection())
+	const parents = [...new Set(columns.flatMap(column => column.component?.parent ? [column.component.parent] : []))]
+		.filter(path => !singular.some(column => column.name === path))
+	selections.push(...parents.map(path => ({ path, objectFields: [] })))
+	const result = await dataSource().select(type, selections, search, options)
 	if (!columns.some(column => column.multiple) || !result.rows.length) return result
 	const ids = result.rows.map(row => row.rootId)
-	const objects = await dataSource().search(type, search, [new Identifiers(ids)])
+	const direct = columns.filter(column => column.multiple && !column.component)
+	const objects = direct.length ? await dataSource().search(type, search, [new Identifiers(ids)]) : []
 	const byId = new Map(objects.map(object => [String(object.id), object]))
+	const components = new Map<string, Map<string, ProjectionCell[]>>()
+	for (const path of new Set(columns.flatMap(column => column.component ? [column.component.path] : []))) {
+		const grouped = columns.filter(column => column.component?.path === path)
+		const component = grouped[0].component!
+		const parentIds = result.rows.map(row => {
+			if (!component.parent) return row.rootId
+			const index = singular.findIndex(column => column.name === component.parent)
+			const cell = row.cells[index < 0 ? singular.length + parents.indexOf(component.parent) : index]
+			return cell.kind === 'value' ? (cell.value as { id: string | number } | null)?.id : undefined
+		})
+		const selectedIds = [...new Set(parentIds.filter((id): id is string | number => id !== undefined))]
+		const selections = new Map<string, Selection>([
+			[component.inverse, { path: component.inverse, objectFields: [] }]
+		])
+		for (const column of grouped) selections.set(column.component!.column.name, column.component!.column.selection())
+		const names = [...selections.keys()]
+		const values = selectedIds.length ? await dataSource().select(component.type, [...selections.values()],
+			{ [component.inverse]: selectedIds }, [new Sort([])]) : undefined
+		for (const column of grouped) {
+			const byParent = new Map<string, ProjectionCell[]>()
+			for (const row of values?.rows ?? []) {
+				const owner = row.cells[0]
+				if (owner.kind !== 'value' || !owner.value) continue
+				const id = String((owner.value as { id: string | number }).id)
+				let cells = byParent.get(id)
+				if (!cells) byParent.set(id, cells = [])
+				cells.push(row.cells[names.indexOf(column.component!.column.name)])
+			}
+			components.set(column.name, new Map(result.rows.map((row, index) =>
+				[String(row.rootId), byParent.get(String(parentIds[index])) ?? []])))
+		}
+	}
 	return {
 		rootType: type,
 		columns: columns.map(column => ({ path: column.name, kind: column.multiple ? 'scalar' :
@@ -114,6 +153,8 @@ export async function projectColumns<T extends object>(
 			const object = byId.get(String(row.rootId))
 			const cells = await Promise.all(columns.map(async column => {
 				if (!column.multiple) return row.cells[singular.indexOf(column)]
+				if (column.component) return { kind: 'value' as const,
+					value: components.get(column.name)!.get(String(row.rootId)) ?? [] }
 				const value = object ? await object[column.name as keyof T] : []
 				return { kind: 'value' as const, value: value ?? [] } satisfies ProjectionCell
 			}))

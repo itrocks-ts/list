@@ -50,7 +50,8 @@ export class List<T extends object = object> extends Action<T>
 			await access.authorise(column.name)
 			for (const field of column.fields ?? []) await access.authorise(`${column.name}.${field}`)
 		}
-		if (request.request.data.columns !== undefined && typeof request.request.data.column !== 'string') {
+		const batch = typeof request.request.data.loadColumns === 'string'
+		if (request.request.data.columns !== undefined && typeof request.request.data.column !== 'string' && !batch) {
 			save(this, request.request, type)
 			return this.htmlResponse('', 204)
 		}
@@ -60,12 +61,39 @@ export class List<T extends object = object> extends Action<T>
 		for (const column of columns) column.search = filter.search[column.name] ?? ''
 		sort.getParams(request.request, type)
 
-		save(this, request.request, type)
+		if (!batch) save(this, request.request, type)
 
 		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
 		const search  = Object.assign(filter.searchObject(type), scope)
 		for (const path of Object.keys(search)) await access.authorise(path)
 		for (const path of Object.keys(sort.sorted ?? {})) await access.authorise(path)
+		if (batch) {
+			try {
+				const names = (request.request.data.loadColumns as string).split(',').filter(Boolean)
+				if (new Set(names).size !== names.length) throw new Error('Duplicate column paths')
+				const requested = names.map(path => new ListColumn(type, path))
+				for (const column of requested) {
+					if (!columns.serialize().includes(column.name)) throw new Error('Column absent from configuration')
+					await access.authorise(column.name)
+					for (const field of column.fields ?? []) await access.authorise(`${column.name}.${field}`)
+				}
+				const ids = request.request.data.rowIds
+				if (typeof ids !== 'string') throw new Error('Visible row identities are required')
+				const result = requested.length ? await projectColumns(type, requested, search,
+					[new Identifiers(ids ? ids.split(',') : [])]) : undefined
+				const response = await Promise.all(requested.map(async (column, index) => ({
+					label: column.label, path: column.name, sortable: column.sortable,
+					rows: await Promise.all(result!.rows.map(async row => ({
+						id: row.rootId, html: await column.output(row.cells[index])
+					})))
+				})))
+				save(this, request.request, type)
+				return this.jsonResponse({ columns: response })
+			}
+			catch (error) {
+				return this.jsonResponse({ error: error instanceof Error ? error.message : 'Columns unavailable' }, 400)
+			}
+		}
 		if (typeof request.request.data.column === 'string') {
 			try {
 				const path = request.request.data.column
