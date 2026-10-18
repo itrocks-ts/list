@@ -41,7 +41,7 @@ table.objects {
 	overflow-y: auto;
 
 	th {
-		background: #f8f8f8;
+		background: #eee;
 	}
 
 	tr {
@@ -203,12 +203,16 @@ table.objects {
 
 	> thead + tbody > tr {
 
-		&:nth-child(even) > td {
+		&:nth-child(even) {
 			background: #f8f8f8;
 		}
 
-		&:nth-child(odd) > td {
+		&:nth-child(odd) {
 			background: white;
+		}
+
+		&:hover {
+			background: #f4f4f4;
 		}
 	}
 }
