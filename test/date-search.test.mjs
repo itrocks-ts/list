@@ -135,9 +135,9 @@ test('wildcard dates are reordered from display format into SQL date patterns', 
 
 test('a single question mark finds present dates and negation finds missing dates', () => {
 	for (const value of ['?', ' ? ']) {
-		assert.deepEqual(dateSearch(value, '=', now).build(), { sql: ' IS NOT NULL', values: [] })
+		assert.deepEqual(dateSearch(value, '=', now).build(), { sql: ' <> ?', values: ['0000-00-00'] })
 		for (const operator of ['!', '!=', '<>'])
-			assert.deepEqual(dateSearch(value, operator, now).build(), { sql: ' IS NULL', values: [] })
+			assert.deepEqual(dateSearch(value, operator, now).build(), { sql: ' = ?', values: ['0000-00-00'] })
 	}
 })
 

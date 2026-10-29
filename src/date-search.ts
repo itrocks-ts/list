@@ -1,12 +1,12 @@
 import { between }        from '@itrocks/sql-functions'
+import { equal }          from '@itrocks/sql-functions'
 import { greater }        from '@itrocks/sql-functions'
 import { greaterOrEqual } from '@itrocks/sql-functions'
-import { isNotNull }      from '@itrocks/sql-functions'
-import { isNull }         from '@itrocks/sql-functions'
 import { less }           from '@itrocks/sql-functions'
 import { lessOrEqual }    from '@itrocks/sql-functions'
 import { like }           from '@itrocks/sql-functions'
 import { notBetween }     from '@itrocks/sql-functions'
+import { notEqual }       from '@itrocks/sql-functions'
 import { notLike }        from '@itrocks/sql-functions'
 import { tr }             from '@itrocks/translate'
 
@@ -98,8 +98,8 @@ export function dateSearch(
 	value = value.trim()
 	if (value === '?') {
 		return ['!', '!=', '<>'].includes(operator)
-			? isNull()
-			: isNotNull()
+			? equal('0000-00-00')
+			: notEqual('0000-00-00')
 	}
 	if (/[%*?]/.test(value)) {
 		const parts = dateParts(value, format, now)

@@ -113,3 +113,10 @@ test('date fields use date parsing before generic hyphens, operators and wildcar
 		assert.equal(filter.serialize().date, value)
 	}
 })
+
+test('empty dates read by the driver render as an empty list cell', async () => {
+	const { initDateHtmlTransformers } = require('@itrocks/core-transformers')
+	const { ListColumn } = require('../cjs/projection.js')
+	initDateHtmlTransformers()
+	assert.equal(await new ListColumn(Entry, 'date').output({ kind: 'value', value: null }), '')
+})

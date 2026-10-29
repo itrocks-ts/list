@@ -186,7 +186,8 @@ Each wildcard counts as one digit while identifying the input format and complet
 `??` selects month patterns in the current year, `????` selects year patterns, and a two-character year such as `**`
 is prefixed with the current century before replacing the wildcards. One-character month and day fields are zero-padded.
 The prefixes `!`, `!=` and `<>` use `NOT LIKE` for these patterns.
-On a date property, `?` alone means a non-empty date (`IS NOT NULL`); `!?`, `!=?` and `<>?` find missing dates (`IS NULL`).
+On a date property, `?` alone excludes the zero date; `!?`, `!=?` and `<>?` find zero dates.
+Empty dates are stored as `0000-00-00`, never SQL `NULL`.
 Invalid dates match no rows, without calendar rollover.
 Original input text is retained in session and restored for subsequent feed requests.
 
