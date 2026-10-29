@@ -155,6 +155,41 @@ Any later hyphens in an interval remain part of the upper bound.
 The original text stays in the input and session; feed requests reconstruct the same criterion from session state.
 The data source converts the bounds according to the property's type.
 
+### Date filters
+
+Date properties use the dedicated `dateSearch()` implementation in `src/date-search.ts` before ordinary interval
+and wildcard processing. Slash and compact dates use the same request-scoped translated `dd/MM/yyyy` format as
+the framework's date output. ISO dates always use year-month-day order; a leading four-digit year also permits
+`yyyy/MM/dd`.
+
+- Four digits select the whole year; one or two digits select that month in the current year (`6` and `06` both mean June).
+- Slash dates accept day/month or month/day according to the display format, with an optional year.
+- Month/year and year/month with a four-digit year select that whole month; either slash or hyphen is accepted.
+- Hyphen dates use ISO order, including short fields such as `26-3-9`. `2020-03` selects March 2020.
+- Six and eight digits are compact local dates, with a two-digit or four-digit year respectively.
+- A separated one-, two- or three-digit year is completed using the current decade, century or millennium.
+- Date ranges use slash dates, for example `01/03/2020-09/03/2020` in day/month order. Open bounds are inclusive.
+- A hyphen between two three- or four-digit years selects all dates from the first January to the last December:
+  `2026-2027` includes both whole years. Three-digit years use the current millennium.
+  Other hyphens without slash are ISO date separators, so `2026-03` still selects March 2026.
+- A leading or trailing hyphen opens the range, including ISO dates: `2026-` starts on 1 January 2026,
+  `-2026` ends on 31 December 2026, `6-` starts on 1 June of the current year, and `-2020-02` includes
+  all dates up to the end of February 2020. Missing components follow the same date completion rules.
+
+Calendar periods include their full final day. Explicit comparisons use the corresponding beginning or end of the
+period: `>2020` starts after 2020, and `<=2020` includes all of 2020. Not-equal comparisons exclude the whole period
+through `NOT BETWEEN`.
+
+Date digits may contain `%`, `?` or `*`. Patterns are reordered into SQL year-month-day order, `?` becomes `_` and `*`
+becomes `%`. For example `??/03/2020` becomes `2020-03-__%` in day/month order; the final `%` also permits stored times.
+Each wildcard counts as one digit while identifying the input format and completing date fields. For example,
+`??` selects month patterns in the current year, `????` selects year patterns, and a two-character year such as `**`
+is prefixed with the current century before replacing the wildcards. One-character month and day fields are zero-padded.
+The prefixes `!`, `!=` and `<>` use `NOT LIKE` for these patterns.
+On a date property, `?` alone means a non-empty date (`IS NOT NULL`); `!?`, `!=?` and `<>?` find missing dates (`IS NULL`).
+Invalid dates match no rows, without calendar rollover.
+Original input text is retained in session and restored for subsequent feed requests.
+
 ## Typical use cases
 
 - Back‑office list screens for any business entity (users, products, orders…).

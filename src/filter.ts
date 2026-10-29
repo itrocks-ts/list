@@ -13,6 +13,7 @@ import { notLike }             from '@itrocks/sql-functions'
 import { Option }              from '@itrocks/storage'
 import { SearchType }          from '@itrocks/storage'
 import { Columns }             from './columns'
+import { dateSearch }          from './date-search'
 import { Parameter }           from './parameter'
 
 type Search = { [property: string]: string }
@@ -70,9 +71,14 @@ export class Filter<T extends object> extends Parameter
 		const search: SearchType = {}
 		for (const [property, value] of Object.entries(this.search)) {
 			if (value === '') continue
-			const comparison = value.match(/^(>=|<=|<>|!=|>|<|=|!)(.*)$/s)
-			const operator   = comparison ? operators[comparison[1] as keyof typeof operators] : undefined
-			const operand    = comparison ? comparison[2].trim() : value
+			const comparison   = value.match(/^(>=|<=|<>|!=|>|<|=|!)(.*)$/s)
+			const operator     = comparison ? operators[comparison[1] as keyof typeof operators] : undefined
+			const operand      = comparison ? comparison[2].trim() : value
+			const propertyType = resolvePropertyPath(type, property).property.type.type
+			if (propertyType === Date) {
+				search[property] = dateSearch(operand, comparison?.[1])
+				continue
+			}
 			if (/[*?]/.test(operand) && (!operator || operator === notEqual)) {
 				const compare    = operator ? notLike : like
 				search[property] = compare(operand.replaceAll('*', '%').replaceAll('?', '_'))
@@ -84,7 +90,7 @@ export class Filter<T extends object> extends Parameter
 			}
 			const separator = value.indexOf('-')
 			if (separator < 0) {
-				const text       = resolvePropertyPath(type, property).property.type.type === String
+				const text       = propertyType === String
 				search[property] = (text ? like(value + '%') : value)
 				continue
 			}

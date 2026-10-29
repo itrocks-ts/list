@@ -101,3 +101,15 @@ test('all not-equal prefixes with wildcards produce NOT LIKE for every property 
 		}
 	}
 })
+
+test('date fields use date parsing before generic hyphens, operators and wildcards', () => {
+	for (const value of ['2020', '2020-03-09', '09/03/2020', '20??', '!??/03/2020', '<=2020-03-09', '?', '!?']) {
+		const filter = new Filter({ map: callback => [callback({ name: 'date' })] })
+		filter.getParams({ data: { 'search.date': value } })
+		const { dateSearch } = require('../cjs/date-search.js')
+		const comparison = value.match(/^(<=|!)(.*)$/)
+		assert.deepEqual(filter.searchObject(Entry).date,
+			dateSearch(comparison ? comparison[2] : value, comparison?.[1]))
+		assert.equal(filter.serialize().date, value)
+	}
+})

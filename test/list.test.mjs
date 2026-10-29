@@ -99,7 +99,7 @@ test('feed restores the current query after durable session saves, changing only
 		const { calls, list } = listDouble()
 		list.columns.properties = []
 		list.feed   = new Feed()
-		list.filter = new Filter({ map: callback => ['owner', 'text'].map(name => callback({ name })) })
+		list.filter = new Filter({ map: callback => ['date', 'owner', 'text'].map(name => callback({ name })) })
 		list.sort   = new Sort(list.columns)
 		const request = actionRequest(data)
 		request.request.session = session
@@ -149,6 +149,16 @@ test('feed restores the current query after durable session saves, changing only
 		const reset = await render({ reset: 'reset' })
 		assert.deepEqual({ ...reset.calls.select[0].search }, { tenant: 42 })
 		compare(reset, await render({ offset: '50' }), 50)
+		for (const value of [
+			'2020', '2026-2027', '03/2020', '01/03/2020-09/03/2020', '20??', '!20??', '<=2020-03-09',
+			'2026-', '-2026', '2020-02-', '-6', '?', '!?', '!=?', '<>?', '??', '??03**', '??/3/**'
+		]) {
+			const dates = await render({ search: { date: value } })
+			assert.equal(dates.response.data.search.date, value)
+			assert.equal(dates.calls.count[0].search, dates.calls.select[0].search)
+			compare(dates, await render({ offset: '50' }), 50)
+			compare(dates, await render({ offset: '100' }), 100)
+		}
 	}
 	finally { await rm(directory, { recursive: true, force: true }) }
 })
