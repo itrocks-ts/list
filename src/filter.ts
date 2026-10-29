@@ -1,8 +1,12 @@
-import { Type }      from '@itrocks/class-type'
-import { Request }   from '@itrocks/request-response'
-import { Option }    from '@itrocks/storage'
-import { Columns }   from './columns'
-import { Parameter } from './parameter'
+import { Type }           from '@itrocks/class-type'
+import { Request }        from '@itrocks/request-response'
+import { between }        from '@itrocks/sql-functions'
+import { greaterOrEqual } from '@itrocks/sql-functions'
+import { lessOrEqual }    from '@itrocks/sql-functions'
+import { Option }         from '@itrocks/storage'
+import { SearchType }     from '@itrocks/storage'
+import { Columns }        from './columns'
+import { Parameter }      from './parameter'
 
 type Search = { [property: string]: string }
 
@@ -45,10 +49,19 @@ export class Filter<T extends object> extends Parameter
 
 	searchObject(type: Type)
 	{
-		const search: Search = {}
+		const search: SearchType = {}
 		for (const [property, value] of Object.entries(this.search)) {
 			if (value === '') continue
-			search[property] = value
+			const separator = value.indexOf('-')
+			if (separator < 0) {
+				search[property] = value
+				continue
+			}
+			const lower = value.slice(0, separator).trim()
+			const upper = value.slice(separator + 1).trim()
+			if (lower && upper) search[property] = between(lower, upper)
+			else if (lower)     search[property] = greaterOrEqual(lower)
+			else if (upper)     search[property] = lessOrEqual(upper)
 		}
 		return Object.setPrototypeOf(search, type.prototype)
 	}

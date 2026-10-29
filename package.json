@@ -21,6 +21,7 @@
 		"@itrocks/request-response": "latest",
 		"@itrocks/route": "latest",
 		"@itrocks/sort": "latest",
+		"@itrocks/sql-functions": "latest",
 		"@itrocks/storage": "latest",
 		"@itrocks/table": "latest",
 		"@itrocks/translate": "latest",
@@ -93,5 +94,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.17.4"
+	"version": "0.18.0"
 }

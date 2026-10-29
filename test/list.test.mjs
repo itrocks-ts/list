@@ -127,6 +127,13 @@ test('feed restores the current query after durable session saves, changing only
 		compare(promoted, await render({ offset: '100' }), 100)
 		const reversed = await render({ sort: 'text', reverse: '', search: { owner: 'current' } })
 		compare(reversed, await render({ offset: '50' }), 50)
+		for (const value of ['2000 - 2010', '- 2010', '2000 -']) {
+			const interval = await render({ search: { text: value } })
+			assert.equal(interval.response.data.search.text, value)
+			assert.equal(interval.calls.count[0].search, interval.calls.select[0].search)
+			compare(interval, await render({ offset: '50' }), 50)
+			compare(interval, await render({ offset: '100' }), 100)
+		}
 		const cleared = await render({ search: { text: '', owner: '' } })
 		assert.deepEqual({ ...cleared.calls.select[0].search }, { tenant: 42 })
 		compare(cleared, await render({ offset: '50' }), 50)

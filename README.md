@@ -130,6 +130,19 @@ templates or the configured data source.
 
 For `json()`, the scope is passed directly to `dataSource().search()`.
 
+## Search filters
+
+HTML list filters interpret the first hyphen as an interval separator. Spaces around the bounds are ignored:
+
+- `2000 - 2010` uses inclusive `between(2000, 2010)`.
+- `-2010` means less than or equal to 2010.
+- `2000-` means greater than or equal to 2000.
+- A hyphen with neither bound applies no criterion.
+
+Text without a hyphen keeps its equality behaviour. Any later hyphens remain part of the upper bound.
+The original text stays in the input and session; feed requests reconstruct the same criterion from session state.
+The data source converts the bounds according to the property's type.
+
 ## Typical use cases
 
 - Back‑office list screens for any business entity (users, products, orders…).
