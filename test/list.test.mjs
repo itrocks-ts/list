@@ -78,7 +78,7 @@ test('html restores session filters for queries and inputs, and accepts clearing
 
 	const sorted = await render({ sort: 'text' })
 	assert.deepEqual({ ...sorted.calls.select[0].search }, { text: 'Alice & Bob' })
-	const feed = await render({ offset: '50', search: { owner: '', text: 'Alice & Bob' } })
+	const feed = await render({ offset: '50' })
 	assert.deepEqual({ ...feed.calls.select[0].search }, { text: 'Alice & Bob' })
 
 	await render({ search: { text: '' } })
@@ -130,6 +130,12 @@ test('feed restores the current query after durable session saves, changing only
 		const cleared = await render({ search: { text: '', owner: '' } })
 		assert.deepEqual({ ...cleared.calls.select[0].search }, { tenant: 42 })
 		compare(cleared, await render({ offset: '50' }), 50)
+		const replaced = await render({ search: { text: 'Émile + Zoé', owner: 'other' } })
+		assert.deepEqual({ ...replaced.calls.select[0].search }, { owner: 'other', tenant: 42, text: 'Émile + Zoé' })
+		compare(replaced, await render({ offset: '50' }), 50)
+		const reset = await render({ reset: 'reset' })
+		assert.deepEqual({ ...reset.calls.select[0].search }, { tenant: 42 })
+		compare(reset, await render({ offset: '50' }), 50)
 	}
 	finally { await rm(directory, { recursive: true, force: true }) }
 })
