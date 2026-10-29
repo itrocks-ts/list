@@ -1,12 +1,19 @@
 import assert            from 'node:assert/strict'
+import { mkdtemp }       from 'node:fs/promises'
+import { rm }            from 'node:fs/promises'
 import { createRequire } from 'node:module'
+import { tmpdir }        from 'node:os'
+import { join }          from 'node:path'
 import { after }         from 'node:test'
 import { test }          from 'node:test'
 
 const require = createRequire(import.meta.url)
 
-const { Filter } = require('../cjs/filter.js')
-const { List }   = require('../cjs/list.js')
+const { FileStore } = require('@itrocks/fastify-file-session-store')
+const { Feed }      = require('../cjs/feed.js')
+const { Filter }    = require('../cjs/filter.js')
+const { List }      = require('../cjs/list.js')
+const { Sort }      = require('../cjs/sort.js')
 const storage  = require('@itrocks/storage')
 
 const originalDataSource = storage.dataSource
@@ -78,6 +85,65 @@ test('html restores session filters for queries and inputs, and accepts clearing
 	const cleared = await render({})
 	assert.deepEqual({ ...cleared.calls.select[0].search }, {})
 	assert.equal(cleared.response.data.search.text, '')
+})
+
+test('feed restores the current query after durable session saves, changing only the limit', async () => {
+	const directory = await mkdtemp(join(tmpdir(), 'list-feed-'))
+	const store = new FileStore(directory)
+	const read = () => new Promise((resolve, reject) =>
+		store.get('list', (error, session) => error ? reject(error) : resolve(session ?? {})))
+	const render = async data => {
+		const session = await read()
+		const { calls, list } = listDouble()
+		list.columns.properties = []
+		list.feed   = new Feed()
+		list.filter = new Filter({ map: callback => ['owner', 'text'].map(name => callback({ name })) })
+		list.sort   = new Sort(list.columns)
+		const request = actionRequest(data)
+		request.request.session = session
+		const response = await list.html(request, { tenant: 42 })
+		await store.transact('list', session, () => {})
+		return { calls, response }
+	}
+	const compare = (initial, feed, offset) => {
+		const first = initial.calls.select[0]
+		const next  = feed.calls.select[0]
+		assert.deepEqual(next.columns, first.columns)
+		assert.deepEqual(next.search, first.search)
+		assert.deepEqual(next.options.filter(option => !(option instanceof storage.Limit)),
+			first.options.filter(option => !(option instanceof storage.Limit)))
+		assert.deepEqual(next.options.find(option => option instanceof storage.Limit), new storage.Limit(50, offset))
+		assert.equal(feed.calls.count.length, 0)
+		assert.equal(feed.response.template.endsWith('/feed.html'), true)
+	}
+	try {
+		await render({ sort: 'owner', search: { text: 'Alice & Bob' } })
+		const changed = await render({ sort: 'text' })
+		compare(changed, await render({ offset: '50' }), 50)
+		// Promote an existing criterion without changing either direction.
+		const promoted = await render({ sort: 'owner' })
+		assert.deepEqual(promoted.calls.select[0].options[0].properties, ['owner', 'text'])
+		compare(promoted, await render({ offset: '50' }), 50)
+		compare(promoted, await render({ offset: '100' }), 100)
+		const reversed = await render({ sort: 'text', reverse: '', search: { owner: 'current' } })
+		compare(reversed, await render({ offset: '50' }), 50)
+		const cleared = await render({ search: { text: '', owner: '' } })
+		assert.deepEqual({ ...cleared.calls.select[0].search }, { tenant: 42 })
+		compare(cleared, await render({ offset: '50' }), 50)
+	}
+	finally { await rm(directory, { recursive: true, force: true }) }
+})
+
+test('session sorting retains its priority and directions in the ordered format', () => {
+	const { list } = listDouble()
+	list.columns.properties = []
+	const sort = new Sort(list.columns)
+	sort.unserialize([['text', true], ['owner', false]])
+	sort.getParams({ data: {} }, Entry)
+	assert.deepEqual(sort.serialize(), [['text', true], ['owner', false]])
+	const restored = new Sort({ properties: [] })
+	restored.unserialize(JSON.parse(JSON.stringify(sort.serialize())))
+	assert.deepEqual(restored.sortOption(), sort.sortOption())
 })
 
 test('json forwards its mandatory scope directly to the data source', async () => {

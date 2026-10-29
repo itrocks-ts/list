@@ -8,7 +8,7 @@ import { Sort as SortOption } from '@itrocks/storage'
 import { Columns }            from './columns'
 import { Parameter }          from './parameter'
 
-interface Serialized {
+interface Sorted {
 	[key: string]: boolean
 }
 
@@ -21,7 +21,7 @@ export class Sort<T extends object> extends Parameter
 {
 
 	columns: Columns<T> & Sortable[]
-	sorted?: Serialized
+	sorted?: Sorted
 
 	constructor(columns: Columns<T>)
 	{
@@ -87,7 +87,8 @@ export class Sort<T extends object> extends Parameter
 
 	serialize()
 	{
-		return this.sorted
+		// Session object merges do not preserve key order; array entries preserve sort priority.
+		return this.sorted && Object.entries(this.sorted)
 	}
 
 	sortOption(): SortOption | Type<SortOption>
@@ -103,9 +104,9 @@ export class Sort<T extends object> extends Parameter
 		return new SortOption(properties)
 	}
 
-	unserialize(data: Serialized)
+	unserialize(data: [string, boolean][])
 	{
-		this.sorted = data
+		this.sorted = Object.fromEntries(data)
 	}
 
 }
