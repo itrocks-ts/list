@@ -93,5 +93,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.17.3"
+	"version": "0.17.4"
 }

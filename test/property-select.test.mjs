@@ -130,6 +130,38 @@ test('plural cells use the visible projected ids and keep singular columns in pl
 	])
 })
 
+test('empty feeds retain collection columns without loading their values', async () => {
+	const calls = []
+	storage.dataSource = () => ({
+		select: async (type, selections, search, options) => {
+			calls.push({ options, search })
+			return { rootType: type, columns: selections.map(selection => ({
+				kind: typeof selection === 'string' ? 'scalar' : 'object',
+				path: typeof selection === 'string' ? selection : selection.path
+			})), rows: [] }
+		},
+		search: async () => assert.fail('Empty feeds must not load collection values')
+	})
+	Component()(City.prototype, 'children')
+	require('@itrocks/composition').Composite()(City.prototype, 'parent')
+	for (const paths of ['number', 'cities,number', 'cities', 'city.children.name,number']) {
+		const session = {}
+		const configured = new List()
+		configured.htmlResponse = (body, status) => ({ body, status })
+		await configured.html(request({ columns: paths }, session))
+		for (const offset of ['72', '100']) {
+			const list = new List()
+			list.htmlTemplateResponse = (data, _request, template) => ({ data, template })
+			const response = await list.html(request({ offset }, session), { active: true })
+			assert.deepEqual(response.data.objects, [])
+			assert.ok(response.template.endsWith('/feed.html'))
+			assert.deepEqual({ ...calls.at(-1).search }, { active: true })
+			assert.equal(calls.at(-1).options.find(option => option instanceof storage.Limit).offset, +offset)
+		}
+	}
+	assert.equal(calls.length, 8, 'Each empty feed should execute only its root query')
+})
+
 test('property selector admits and sends a direct plural object column', async () => {
 	storage.dataSource = () => ({
 		select: async () => ({ rootType: Invoice, columns: [], rows: [{ rootId: 1, cells: [] }] }),

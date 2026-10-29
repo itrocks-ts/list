@@ -108,7 +108,10 @@ export async function projectColumns<T extends object>(
 		.filter(path => !singular.some(column => column.name === path))
 	selections.push(...parents.map(path => ({ path, objectFields: [] })))
 	const result = await dataSource().select(type, selections, search, options)
-	if (!columns.some(column => column.multiple) || !result.rows.length) return result
+	if (!columns.some(column => column.multiple)) return result
+	const projectedColumns = columns.map(column => ({ path: column.name, kind: column.multiple ? 'scalar' as const :
+		result.columns[singular.indexOf(column)].kind }))
+	if (!result.rows.length) return { ...result, columns: projectedColumns }
 	const ids = result.rows.map(row => row.rootId)
 	const direct = columns.filter(column => column.multiple && !column.component)
 	const objects = direct.length ? await dataSource().search(type, search, [new Identifiers(ids)]) : []
@@ -147,8 +150,7 @@ export async function projectColumns<T extends object>(
 	}
 	return {
 		rootType: type,
-		columns: columns.map(column => ({ path: column.name, kind: column.multiple ? 'scalar' :
-			result.columns[singular.indexOf(column)].kind })),
+		columns: projectedColumns,
 		rows: await Promise.all(result.rows.map(async row => {
 			const object = byId.get(String(row.rootId))
 			const cells = await Promise.all(columns.map(async column => {
