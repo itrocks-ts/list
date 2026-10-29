@@ -1,14 +1,32 @@
-import { Type }           from '@itrocks/class-type'
-import { Request }        from '@itrocks/request-response'
-import { between }        from '@itrocks/sql-functions'
-import { greaterOrEqual } from '@itrocks/sql-functions'
-import { lessOrEqual }    from '@itrocks/sql-functions'
-import { Option }         from '@itrocks/storage'
-import { SearchType }     from '@itrocks/storage'
-import { Columns }        from './columns'
-import { Parameter }      from './parameter'
+import { Type }                from '@itrocks/class-type'
+import { Request }             from '@itrocks/request-response'
+import { resolvePropertyPath } from '@itrocks/reflect-path'
+import { between }             from '@itrocks/sql-functions'
+import { equal }               from '@itrocks/sql-functions'
+import { greater }             from '@itrocks/sql-functions'
+import { greaterOrEqual }      from '@itrocks/sql-functions'
+import { less }                from '@itrocks/sql-functions'
+import { lessOrEqual }         from '@itrocks/sql-functions'
+import { like }                from '@itrocks/sql-functions'
+import { notEqual }            from '@itrocks/sql-functions'
+import { notLike }             from '@itrocks/sql-functions'
+import { Option }              from '@itrocks/storage'
+import { SearchType }          from '@itrocks/storage'
+import { Columns }             from './columns'
+import { Parameter }           from './parameter'
 
 type Search = { [property: string]: string }
+
+const operators = {
+	'!':  notEqual,
+	'!=': notEqual,
+	'<':  less,
+	'<=': lessOrEqual,
+	'<>': notEqual,
+	'=':  equal,
+	'>':  greater,
+	'>=': greaterOrEqual
+}
 
 export class Filter<T extends object> extends Parameter
 {
@@ -52,9 +70,22 @@ export class Filter<T extends object> extends Parameter
 		const search: SearchType = {}
 		for (const [property, value] of Object.entries(this.search)) {
 			if (value === '') continue
+			const comparison = value.match(/^(>=|<=|<>|!=|>|<|=|!)(.*)$/s)
+			const operator   = comparison ? operators[comparison[1] as keyof typeof operators] : undefined
+			const operand    = comparison ? comparison[2].trim() : value
+			if (/[*?]/.test(operand) && (!operator || operator === notEqual)) {
+				const compare    = operator ? notLike : like
+				search[property] = compare(operand.replaceAll('*', '%').replaceAll('?', '_'))
+				continue
+			}
+			if (operator) {
+				search[property] = operator(operand)
+				continue
+			}
 			const separator = value.indexOf('-')
 			if (separator < 0) {
-				search[property] = value
+				const text       = resolvePropertyPath(type, property).property.type.type === String
+				search[property] = (text ? like(value + '%') : value)
 				continue
 			}
 			const lower = value.slice(0, separator).trim()

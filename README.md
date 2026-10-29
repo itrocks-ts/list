@@ -139,7 +139,19 @@ HTML list filters interpret the first hyphen as an interval separator. Spaces ar
 - `2000-` means greater than or equal to 2000.
 - A hyphen with neither bound applies no criterion.
 
-Text without a hyphen keeps its equality behaviour. Any later hyphens remain part of the upper bound.
+Leading `>`, `>=`, `<`, `<=`, `<>`, `!=` and `!` apply the corresponding comparison.
+The prefixes `<>`, `!=` and `!` mean not equal; the equals sign after `!` is optional.
+With `*` or `?` in their operand, these three prefixes request `NOT LIKE` instead, using the same wildcard conversion.
+A leading `=` requests exact equality, including an empty string. Spaces around explicit comparison operands are ignored.
+Explicit operators take precedence over interval syntax, so `>=-10` compares with negative ten and `=A-B` matches `A-B`.
+
+Without an explicit comparison operator, `*` and `?` request `LIKE` for any property type, replacing all `*` with `%`
+and all `?` with `_`. The pattern is used as supplied without an extra trailing wildcard. Wildcards take precedence
+over interval syntax, so `2000-20??` becomes the pattern `2000-20__`.
+
+Without an operator, wildcard or hyphen, text properties use prefix matching (`Alice` becomes `LIKE 'Alice%'`).
+Other property types retain equality. The type of nested properties is resolved from the final property.
+Any later hyphens in an interval remain part of the upper bound.
 The original text stays in the input and session; feed requests reconstruct the same criterion from session state.
 The data source converts the bounds according to the property's type.
 

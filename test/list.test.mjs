@@ -9,6 +9,8 @@ import { test }          from 'node:test'
 
 const require = createRequire(import.meta.url)
 
+const { File } = require('@itrocks/class-file')
+const { like } = require('@itrocks/sql-functions')
 const { FileStore } = require('@itrocks/fastify-file-session-store')
 const { Feed }      = require('../cjs/feed.js')
 const { Filter }    = require('../cjs/filter.js')
@@ -72,14 +74,14 @@ test('html restores session filters for queries and inputs, and accepts clearing
 
 	await render({ search: { text: 'Alice & Bob' } })
 	const restored = await render({})
-	assert.deepEqual({ ...restored.calls.select[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual({ ...restored.calls.select[0].search }, { text: like('Alice & Bob%') })
 	assert.deepEqual(restored.response.data.search, { owner: '', text: 'Alice & Bob' })
 	assert.equal(restored.calls.count[0].search, restored.calls.select[0].search)
 
 	const sorted = await render({ sort: 'text' })
-	assert.deepEqual({ ...sorted.calls.select[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual({ ...sorted.calls.select[0].search }, { text: like('Alice & Bob%') })
 	const feed = await render({ offset: '50' })
-	assert.deepEqual({ ...feed.calls.select[0].search }, { text: 'Alice & Bob' })
+	assert.deepEqual({ ...feed.calls.select[0].search }, { text: like('Alice & Bob%') })
 
 	await render({ search: { text: '' } })
 	const cleared = await render({})
@@ -127,7 +129,10 @@ test('feed restores the current query after durable session saves, changing only
 		compare(promoted, await render({ offset: '100' }), 100)
 		const reversed = await render({ sort: 'text', reverse: '', search: { owner: 'current' } })
 		compare(reversed, await render({ offset: '50' }), 50)
-		for (const value of ['2000 - 2010', '- 2010', '2000 -']) {
+		for (const value of [
+			'2000 - 2010', '- 2010', '2000 -', '>0', '>=0', '<10', '<=10', '<>0', '!=0', '!0', '=A-B', '*Alice*', '20??',
+			'!*Alice*', '!=20??', '<>0*'
+		]) {
 			const interval = await render({ search: { text: value } })
 			assert.equal(interval.response.data.search.text, value)
 			assert.equal(interval.calls.count[0].search, interval.calls.select[0].search)
@@ -138,7 +143,8 @@ test('feed restores the current query after durable session saves, changing only
 		assert.deepEqual({ ...cleared.calls.select[0].search }, { tenant: 42 })
 		compare(cleared, await render({ offset: '50' }), 50)
 		const replaced = await render({ search: { text: 'Émile + Zoé', owner: 'other' } })
-		assert.deepEqual({ ...replaced.calls.select[0].search }, { owner: 'other', tenant: 42, text: 'Émile + Zoé' })
+		assert.deepEqual({ ...replaced.calls.select[0].search },
+			{ owner: like('other%'), tenant: 42, text: like('Émile + Zoé%') })
 		compare(replaced, await render({ offset: '50' }), 50)
 		const reset = await render({ reset: 'reset' })
 		assert.deepEqual({ ...reset.calls.select[0].search }, { tenant: 42 })
@@ -188,6 +194,7 @@ test('omitting the scope preserves html filters and the json query', async () =>
 
 class Entry
 {}
+File(require.resolve('./fixtures/filter.d.ts').replace('.d.ts', '.js'))(Entry)
 
 function actionRequest(data = {})
 {
