@@ -27,31 +27,8 @@ The `List` action is meant to be attached to a domain class (for example an
 `User` entity) and is responsible for rendering either an HTML list page or a
 JSON payload depending on the requested format.
 
-```ts
-import { List } from '@itrocks/list'
-import { Request } from '@itrocks/action-request'
-
-// The domain object you want to list
-class User {
-	/* ... */
-}
-
-// Create an action instance for this domain
-const listUsers = new List<User>()
-
-// In your controller / route handler
-async function usersHtml (request: Request<User>) {
-	return listUsers.html(request)
-}
-
-async function usersJson (request: Request<User>) {
-	return listUsers.json(request)
-}
-```
-
-The request object is typically created by
-[@itrocks/action-request](https://github.com/itrocks-ts/action-request) from
-an incoming HTTP request.
+HTML rendering provides columns, filters, ordered sorting and session preferences. The JSON action exposes
+business objects for API consumers. See the public methods below for their shared contracts.
 
 ## API
 
@@ -80,20 +57,6 @@ The returned
 [`HtmlResponse`](https://github.com/itrocks-ts/core-responses#htmlresponse)
 contains the rendered table along with paging, filters and actions configured
 through your `Action` stack.
-
-Typical usage is to call this method from a route that should return HTML:
-
-```ts
-fastify.get('/users', async (req, reply) => {
-	const request = toActionRequest<User>(req) // project helper
-	const response = await listUsers.html(request)
-	reply
-		.status(response.status)
-		.headers(response.headers)
-		.type('text/html')
-		.send(response.body)
-})
-```
 
 ##### `json(request: Request<T>, scope?: SearchType<T>): Promise<JsonResponse>`
 
@@ -150,7 +113,8 @@ HTML list filters interpret the first hyphen as an interval separator. Spaces ar
 Leading `>`, `>=`, `<`, `<=`, `<>`, `!=` and `!` apply the corresponding comparison.
 The prefixes `<>`, `!=` and `!` mean not equal; the equals sign after `!` is optional.
 With `*` or `?` in their operand, these three prefixes request `NOT LIKE` instead, using the same wildcard conversion.
-A leading `=` requests exact equality, including an empty string. Spaces around explicit comparison operands are ignored.
+A leading `=` requests exact equality, including an empty string. Spaces around explicit comparison operands are
+ignored.
 Explicit operators take precedence over interval syntax, so `>=-10` compares with negative ten and `=A-B` matches `A-B`.
 
 Without an explicit comparison operator, `*` and `?` request `LIKE` for any property type, replacing all `*` with `%`
@@ -203,11 +167,12 @@ Logical criteria retain mandatory application scopes and authorisation checks on
 ### Date filters
 
 Date properties use the dedicated `dateSearch()` implementation in `src/date-search.ts` before ordinary interval
-and wildcard processing. Slash and compact dates use the same request-scoped translated `dd/MM/yyyy` format as
-the framework's date output. ISO dates always use year-month-day order; a leading four-digit year also permits
+and wildcard processing. Slash and compact dates use the request-scoped translated `dd/MM/yyyy` display format.
+ISO dates always use year-month-day order; a leading four-digit year also permits
 `yyyy/MM/dd`.
 
-- Four digits select the whole year; one or two digits select that month in the current year (`6` and `06` both mean June).
+- Four digits select the whole year; one or two digits select that month in the current year (`6` and `06` both mean
+  June).
 - Slash dates accept day/month or month/day according to the display format, with an optional year.
 - Month/year and year/month with a four-digit year select that whole month; either slash or hyphen is accepted.
 - Hyphen dates use ISO order, including short fields such as `26-3-9`. `2020-03` selects March 2020.
@@ -283,31 +248,28 @@ a resolver as part of its composition; arbitrary callback internals are not infe
 rejected. The hook does not change SQL construction or object reconstruction. Object heading sort expands to
 representative scalar paths followed by object identity; storage adds the root tie-breaker.
 
-`listDependsOn({ access })` accepts an asynchronous request-scoped adapter returning `{ root?, authorise(path) }`. The
-framework binds configured metadata roots and checks selected paths, representative fields, filters and ordering.
-Without a configured root the ordinary list remains available, with no selector command. Never retain request state in
-the dependency hook. The configured data source remains responsible for storage and mandatory record scope.
-
 `GET /<business-route>/list?column=<path>&rowIds=<comma-separated-identifiers>` uses the HTML action and returns a JSON
 column descriptor with rendered cells keyed by root id. It intersects visible ids with the current filters and mandatory
 scope, makes one projection and performs no count. Invalid selections return 400. Full entity JSON remains available
 through `/list/json`. Adding `columns=<ordered-paths>` saves the column configuration in the same request.
 Configuration-only requests return 204. The browser serialises both kinds of request to preserve the latest order.
 
-The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect`, with explicit metadata, table
-addition, column persistence and narrow pane ports. The framework mounts it only on compatible lists and disposes it on
-navigation. It reserves pending paths and confirms accepted additions. The checkbox, its cell and the property name
-toggle terminal and relation columns. The checkbox clears immediately before the red removal flash. Reselecting during that flash cancels removal,
+The selector reserves pending paths and confirms accepted additions. The checkbox, its cell and the property name
+toggle terminal and relation columns. The checkbox clears immediately before the red removal flash. Reselecting during
+that flash cancels removal,
 checks the property again and highlights the retained column green, then saves the restored configuration.
 The removal configuration is sent at the initial click, independently of the animation; deleting the cells sends no
 additional request.
-After a completed removal, a later click returns the column immediately right of its former left neighbour, or left of its former right neighbour if the left one is absent. If neither remains,
+After a completed removal, a later click returns the column immediately right of its former left neighbour, or left of
+its former right neighbour if the left one is absent. If neither remains,
 it is appended. Neighbours are kept only in this pane instance's memory and cleared on folding, closure or disposal;
 they never enter session state. Drag placement continues to follow the drop position.
-An explicit addition intention always requests addition: an existing column is revealed and highlighted green without removal.
+An explicit addition intention always requests addition: an existing column is revealed and highlighted green without
+removal.
 Property names and checkbox cells toggle the same selection; chevrons and intermediate path segments navigate.
 The consumer checks row identity before insertion. Failed selection leaves the context intact. It loads only currently
-visible row ids through the current feed position; changing the row view while loading rejects the obsolete response with a
+visible row ids through the current feed position; changing the row view while loading rejects the obsolete response
+with a
 discreet red background. Clicks commit the translated full-path heading and filter locally, before any server response.
 One asynchronous request
 then saves the column order and loads the values; there is no separate admission request. A new drag calls the same
@@ -322,15 +284,14 @@ Existing-column moves and removals only save the column configuration. The heade
 together, so it uses the table addition plugin's single-header contract.
 
 `npm test` runs the server contracts; `test/property-select.test.mjs` covers projection, representation, scope, path
-configuration, filters and ordering. Real framework/browser proof is tracked by the property-select L2-LIST delivery.
+configuration, filters and ordering.
 
 ## Selector session state
 
-The public `@itrocks/list/selector-state` entry exports `SessionStateStore`, `SelectorStateAction`, `selectorStateKey`
-and the composition hook `listStateDependsOn({ transaction })`. The injected function runs an operation against the
-request's authoritative session snapshot and resolves only after durable save. No session is retained by the binding.
+The public `@itrocks/list/selector-state` entry exports `SessionStateStore`, `SelectorStateAction` and
+`selectorStateKey`.
 `SessionStateStore` implements the selector's read/write/remove port with revision checks and removal tombstones in
-`session.propertySelect`, separate from `session.list`. The framework supplies the HTTP adapter transaction.
+`session.propertySelect`, separate from `session.list`.
 
 `selectorStateKey(request)` uses the router-resolved route, identifying ids and list action. Query and format arguments
 do not affect it. The rendered article supplies this opaque key to the browser. `GET`, `PUT` and `DELETE` at
@@ -368,15 +329,11 @@ Locating a selected column uses the same width check and closes a full-width pan
 It covers initial mount, click placeholders, hidden drag additions, values for 80 loaded rows before entry or drop,
 green addition indicators, outside removal before and after entry, terminal toggles and reordering.
 `node test/browser-removal-cancel.mjs` checks immediate unchecking and cancellation during the red flash through
-checkbox, cell and name clicks, for terminal and relation columns, with an immediate removal save followed by a restored configuration save.
+checkbox, cell and name clicks, for terminal and relation columns, with an immediate removal save followed by a restored
+configuration save.
 `node test/browser-column-positions.mjs` checks neighbour-based reinsertion in the real table, both fallbacks,
 and memory expiry on closure, including closure during a pending removal. It starts its own synthetic HTTP fixture.
 Set `PS_PLAYWRIGHT_MODULE` to an installed Playwright module when using a different runtime.
-
-`node test/browser-toggle.mjs` exercises the real framework list against the synthetic recipe database on port 13316
-(`PS_DATABASE_PORT` overrides it). It starts and stops its own application instance and checks desktop keyboard, touch,
-reduced motion, horizontal reveal, removal and temporary-row transitions. `PS_TOGGLE_URL` reuses an existing instance
-of that recipe instead. The synthetic database must already be running; this test never resets it.
 
 ## Component column batches
 
@@ -398,3 +355,122 @@ The same projection is used when reloading the list or adding an individual comp
 `test/browser-component-batch.mjs` verifies real browser interactions, HTTP request counts, MySQL query counts,
 rendered values, mandatory row scope, partial selection, removal and session restoration. It creates and cleans up
 its own temporary database and server using the existing selector integration recipe.
+
+## Session state integration
+
+`@itrocks/list/session-state` exposes the settings independently of rendering:
+
+```ts
+import { listState }        from '@itrocks/list/session-state'
+import { replaceListState } from '@itrocks/list/session-state'
+
+const settings = listState(request.request, request.type)
+replaceListState(request.request, request.type, settings)
+replaceListState(request.request, request.type)
+```
+
+`listState(request: ServerRequest, type: Type): ListState` returns a deep copy of columns, filters
+and ordered sort tuples.
+`replaceListState(request, type, state?)` replaces the complete session entry;
+omitting state restores reflected defaults on the next render.
+Neither function queries business rows or changes mandatory scopes.
+The state excludes feed position, row selection and unapplied filter input.
+`comparableListState(state)` normalises empty filters for detecting settings changes between requests.
+
+## Usage with the it.rocks framework
+
+The [it.rocks framework](https://github.com/itrocks-ts/framework) binds route-backed metadata roots and path
+authorisation, mounts the property selector on compatible lists and disposes it on navigation.
+It also supplies the HTTP adapter transaction for selector session state.
+See [property selector integration](https://github.com/itrocks-ts/framework/blob/main/docs/property-select.md)
+for metadata, browser composition and session bootstrap.
+
+Saved-list loading and modification tracking use the
+[framework session callbacks](docs/dependencies.md#integration-with-the-itrocks-framework).
+
+### Framework verification
+
+`node test/browser-toggle.mjs` exercises the real framework list against the synthetic recipe database on port 13316
+(`PS_DATABASE_PORT` overrides it). It starts and stops its own application instance and checks desktop keyboard, touch,
+reduced motion, horizontal reveal, removal and temporary-row transitions. `PS_TOGGLE_URL` reuses an existing instance
+of that recipe instead. The synthetic database must already be running; this test never resets it.
+
+## Integration outside the it.rocks framework
+
+### Action and HTTP integration
+
+Attach `List` to your domain classes through an
+[`action`](https://github.com/itrocks-ts/action) workflow and supply the action request from your HTTP adapter:
+
+```ts
+import { List } from '@itrocks/list'
+import { Request } from '@itrocks/action-request'
+
+// The domain object you want to list
+class User {
+	/* ... */
+}
+
+// Create an action instance for this domain
+const listUsers = new List<User>()
+
+// In your controller / route handler
+async function usersHtml (request: Request<User>) {
+	return listUsers.html(request)
+}
+
+async function usersJson (request: Request<User>) {
+	return listUsers.json(request)
+}
+```
+
+The request object is typically created by
+[@itrocks/action-request](https://github.com/itrocks-ts/action-request) from
+an incoming HTTP request.
+
+Typical usage is to call this method from a route that should return HTML:
+
+```ts
+fastify.get('/users', async (req, reply) => {
+	const request = toActionRequest<User>(req) // project helper
+	const response = await listUsers.html(request)
+	reply
+		.status(response.status)
+		.headers(response.headers)
+		.type('text/html')
+		.send(response.body)
+})
+```
+
+### Projection and access adapters
+
+`listDependsOn({ access })` accepts an asynchronous request-scoped adapter returning `{ root?, authorise(path) }`.
+The adapter supplies the metadata root and authorises selected paths, representative fields, filters and ordering.
+Without a configured root the ordinary list remains available, with no selector command. Never retain request state in
+the dependency hook. The configured data source remains responsible for storage and mandatory record scope.
+
+### Property selector activation
+
+The browser entry `@itrocks/list/property-select.js` exports `ListPropertySelect`, with explicit metadata, table
+addition, column persistence and narrow pane ports. The host mounts it on compatible lists and disposes it on
+navigation.
+
+### Selector session transaction
+
+`listStateDependsOn({ transaction })` from `@itrocks/list/selector-state` binds the host's HTTP adapter transaction.
+The injected function runs an operation against the request's authoritative session snapshot and resolves only
+after durable save. No session is retained by the binding.
+
+### List session callbacks and browser events
+
+`listSessionDependsOn({ prepare?, changed? })` provides optional host integration. The defaults do nothing.
+`prepare(request)` runs before session loading and may return a transport-neutral response to stop rendering.
+`changed(serverRequest, type)` runs when persisted settings differ from the immediately preceding state.
+Loaded filter data is copied so applying a filter cannot mutate the preceding session snapshot before comparison.
+`listDependsOn({ view })` optionally supplies a template and its data to include in the full list response,
+for example its breadcrumb, without a second HTTP request.
+See [dependency binding](docs/dependencies.md).
+
+The browser's `itrocks:list-ready` event includes `settled(): Promise<void>` for its persistence queue.
+Successful column configuration requests emit `itrocks:list-change` after saving.
+These contracts allow an independent package to save or load settings after pending column writes complete.

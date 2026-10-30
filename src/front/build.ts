@@ -14,11 +14,19 @@ import './search-menu.js'
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	table => {
+		let persistedColumns = [...table.querySelectorAll<HTMLElement>('thead th[data-property]')]
+			.map(header => header.dataset.property).join(',')
 		let saving = Promise.resolve()
 		const request = (query: URLSearchParams, signal?: AbortSignal): Promise<Response> => {
 			const form = table.closest('form')!
 			const result = saving.then(() => fetch(`${form.action}?${query}`, { keepalive: true, signal }))
 			saving = result.then(() => {}, () => {})
+			void result.then(response => {
+				if (response.ok && query.has('columns') && (query.get('columns') !== persistedColumns)) {
+					persistedColumns = query.get('columns')!
+					table.dispatchEvent(new CustomEvent('itrocks:list-change', { bubbles: true }))
+				}
+			}, () => {})
 			return result
 		}
 		const saveColumns = (paths?: readonly string[]): Promise<void> => {
@@ -52,7 +60,7 @@ build<HTMLTableElement>(
 			]
 		})
 		table.dispatchEvent(new CustomEvent('itrocks:list-ready', {
-			bubbles: true, detail: { addition, instance, request, saveColumns }
+			bubbles: true, detail: { addition, instance, request, saveColumns, settled: () => saving }
 		}))
 		table.addEventListener('click', event => {
 			const element = event.target

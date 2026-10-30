@@ -25,11 +25,11 @@ request.session.list[routeOf(type)] = {
 	columns: ['name', 'email', 'createdAt'],
 	feed: undefined,
 	filter: { name: 'Alice', email: '', createdAt: '' },
-	sort: { name: false, createdAt: true }
+	sort: [['name', false], ['createdAt', true]]
 }
 ```
 
-Les clés de `sort` respectent l'ordre de priorité. Leur booléen vaut `true` pour un tri descendant et `false` pour un
+Les tuples de `sort` respectent l'ordre de priorité. Leur booléen vaut `true` pour un tri descendant et `false` pour un
 tri ascendant.
 
 ## Tri des colonnes
@@ -45,7 +45,7 @@ Après le chargement de session, `Sort.getParams()` procède ainsi :
 - si la requête contient `sort`, la propriété demandée passe en première position et prend le sens transmis, tandis
   que les autres critères restent dans leur ordre précédent.
 
-`Sort.serialize()` sauvegarde ensuite l'objet ordonné dans la session. Au rendu suivant, cet objet est donc utilisé à
+`Sort.serialize()` sauvegarde ensuite les tuples ordonnés dans la session. Au rendu suivant, cet état est donc utilisé à
 la place des valeurs issues des options de stockage ou de la réflexion.
 
 ## Ordre et suppression des colonnes

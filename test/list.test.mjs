@@ -14,7 +14,7 @@ const { and, like } = require('@itrocks/sql-functions')
 const { FileStore } = require('@itrocks/fastify-file-session-store')
 const { Feed }      = require('../cjs/feed.js')
 const { Filter }    = require('../cjs/filter.js')
-const { List }      = require('../cjs/list.js')
+const { List, listDependsOn } = require('../cjs/list.js')
 const { Sort }      = require('../cjs/sort.js')
 const storage  = require('@itrocks/storage')
 
@@ -25,6 +25,22 @@ storage.dataSource = () => activeDataSource
 
 after(() => {
 	storage.dataSource = originalDataSource
+})
+
+test('full list responses include the host view while feed and column saves do not render it', async () => {
+	const view = { template: '/host/breadcrumb.html', label: 'Current list' }
+	const requests = []
+	listDependsOn({ view: async request => { requests.push(request); return view } })
+	try {
+		const current = actionRequest()
+		const full = await listDouble().list.html(current)
+		assert.equal(full.data.view, view)
+		assert.deepEqual(requests, [current])
+		await listDouble({ offset: 50 }).list.html(actionRequest({ offset: '50' }))
+		await listDouble().list.html(actionRequest({ columns: 'text' }))
+		assert.deepEqual(requests, [current])
+	}
+	finally { listDependsOn({ view: async () => undefined }) }
 })
 
 test('html combines user filters and a mandatory scope for projection and count', async () => {

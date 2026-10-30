@@ -45,7 +45,8 @@
 		"./projection": "./cjs/projection.js",
 		"./property-select.js": "./property-select.js",
 		"./selector-state": "./cjs/selector-state.js",
-		"./selector-state.js": "./selector-state.js"
+		"./selector-state.js": "./selector-state.js",
+		"./session-state": "./cjs/session-state.js"
 	},
 	"homepage": "https://it.rocks",
 	"files": [
@@ -53,10 +54,12 @@
 		"LICENSE",
 		"README.md",
 		"cjs",
+		"docs/dependencies.md",
 		"/*.svg",
 		"*.css",
 		"*.d.ts",
-		"*.js"
+		"*.js",
+		"!*.map"
 	],
 	"keywords": [
 		"action",
@@ -94,5 +97,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.24.0"
+	"version": "0.25.0"
 }

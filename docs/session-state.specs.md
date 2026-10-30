@@ -25,11 +25,11 @@ request.session.list[routeOf(type)] = {
 	columns: ['name', 'email', 'createdAt'],
 	feed: undefined,
 	filter: { name: 'Alice', email: '', createdAt: '' },
-	sort: { name: false, createdAt: true }
+	sort: [['name', false], ['createdAt', true]]
 }
 ```
 
-The keys in `sort` follow their priority order. Their boolean value is `true` for descending order and `false` for
+The tuples in `sort` follow their priority order. Their boolean value is `true` for descending order and `false` for
 ascending order.
 
 ## Column sorting
@@ -44,7 +44,7 @@ After loading the session, `Sort.getParams()` behaves as follows:
 - when the request contains `sort`, the requested property moves to the first position and takes the supplied
   direction, while the remaining criteria retain their previous order.
 
-`Sort.serialize()` then stores the ordered object in the session. On the next render, this object is used instead of
+`Sort.serialize()` then stores the ordered tuples in the session. On the next render, this state is used instead of
 values obtained from storage options or reflection.
 
 ## Column display order and removal
@@ -99,3 +99,5 @@ value display transformations.
 This mechanism means that a new reflection-defined order does not replace an existing session preference. To restore
 the reflected order immediately after metadata changes, remove the relevant list entry from the session or start a new
 session.
+
+The host may prepare named configurations before `load()` through the [session state port](../README.md#session-state-integration).

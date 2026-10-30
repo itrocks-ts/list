@@ -1,18 +1,19 @@
 import { Action }                 from '@itrocks/action'
 import { ActionEntry }            from '@itrocks/action'
-import { Need }                   from '@itrocks/action'
 import { getActions }             from '@itrocks/action'
+import { Need }                   from '@itrocks/action'
 import { Request }                from '@itrocks/action-request'
 import { Route }                  from '@itrocks/route'
 import { routeOf }                from '@itrocks/route'
 import { AND }                    from '@itrocks/sql-functions'
-import { OR }                     from '@itrocks/sql-functions'
 import { conditionPaths }         from '@itrocks/sql-functions'
+import { OR }                     from '@itrocks/sql-functions'
+import { dataSource }             from '@itrocks/storage'
 import { Identifiers }            from '@itrocks/storage'
 import { SearchType }             from '@itrocks/storage'
 import { SelectionError }         from '@itrocks/storage'
-import { dataSource }             from '@itrocks/storage'
 import { listAccess }             from './access'
+import { listView }               from './access'
 import { Columns }                from './columns'
 import { projectColumns }         from './columns'
 import { Feed }                   from './feed'
@@ -22,10 +23,11 @@ import { save }                   from './persist'
 import { ListColumn }             from './projection'
 import { selectorStateBootstrap } from './selector-state'
 import { selectorStateKey }       from './selector-state'
+import { prepareListSession }     from './session-state'
 import { Sort }                   from './sort'
 
 export { listDependsOn } from './access'
-export type { ListAccess, ListDependencies } from './access'
+export type { ListAccess, ListDependencies, ListView } from './access'
 
 @Need('Store', 'new')
 @Route('/list')
@@ -45,6 +47,8 @@ export class List<T extends object = object> extends Action<T>
 		const sort    = this.sort
 		const type    = request.type
 
+		const prepared = await prepareListSession(request)
+		if (prepared) return prepared
 		load(this, request.request, type)
 
 		columns.getParams(request.request, type)
@@ -154,8 +158,11 @@ export class List<T extends object = object> extends Action<T>
 			selectorBootstrap = encodeURIComponent(JSON.stringify({ ...state, ...metadata }))
 		}
 		return this.htmlTemplateResponse(
-			{ columns, count, generalActions, objects, root: access.root, search: filter.search,
-				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type },
+			{
+				columns, count, generalActions, objects, root: access.root, search: filter.search,
+				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type,
+				view: await listView(request)
+			},
 			request,
 			__dirname + '/list.html'
 		)
