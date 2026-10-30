@@ -149,6 +149,11 @@ Without an explicit comparison operator, `*` and `?` request `LIKE` for any prop
 and all `?` with `_`. The pattern is used as supplied without an extra trailing wildcard. Wildcards take precedence
 over interval syntax, so `2000-20??` becomes the pattern `2000-20__`.
 
+`empty` is an alias for `!?*`; `!empty`, `!=empty` and `<>empty` mean `?*` (a non-empty value).
+The alias accepts the current language's translation through `trReverse()`, for example `vide` and `!vide` in French.
+Alias matching ignores case and surrounding spaces. Use `=empty` or `=vide` to match the literal word.
+For dates, these aliases use the existing empty (`!?`) and non-empty (`?`) date criteria.
+
 Without an operator, wildcard or hyphen, text properties use prefix matching (`Alice` becomes `LIKE 'Alice%'`).
 Other property types retain equality. The type of nested properties is resolved from the final property.
 Any later hyphens in an interval remain part of the upper bound.

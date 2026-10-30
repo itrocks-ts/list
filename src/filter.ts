@@ -17,6 +17,7 @@ import { notLike }             from '@itrocks/sql-functions'
 import { or }                  from '@itrocks/sql-functions'
 import { Option }              from '@itrocks/storage'
 import { SearchType }          from '@itrocks/storage'
+import { trReverse }           from '@itrocks/translate'
 import { Columns }             from './columns'
 import { dateSearch }          from './date-search'
 import { Parameter }           from './parameter'
@@ -42,7 +43,11 @@ function searchValue(propertyType: unknown, expression: SearchExpression): unkno
 		const combine = (expression.operator === 'AND') ? and : or
 		return combine(...expression.operands.map(operand => searchValue(propertyType, operand) ?? or()))
 	}
-	const value      = expression.value
+	let   value = expression.value
+	const alias = value.trim().match(/^(!=|<>|!)?\s*(.+)$/s)
+	if (alias && (trReverse(alias[2].toLowerCase()) === 'empty')) {
+		value = (alias[1] ? '' : '!') + ((propertyType === Date) ? '?' : '?*')
+	}
 	const comparison = value.match(/^(>=|<=|<>|!=|>|<|=|!)(.*)$/s)
 	const operator   = comparison ? operators[comparison[1] as keyof typeof operators] : undefined
 	const operand    = comparison ? comparison[2].trim() : value
