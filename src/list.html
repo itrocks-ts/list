@@ -31,7 +31,8 @@
 				<thead>
 					<tr class="properties">
 						<th class="select" data-freeze><input name="select" type="checkbox" value="all">
-							<input name="reset" title="reset search filters" type="submit" value="reset"></th>
+							<input class="search-submit" title="Search" type="submit" value="Search">
+						</th>
 						<!--columns-->
 						<th data-property="{name}" data-reverse="{?reverse}" data-sort="{?sort}"
 							data-sortable="{sortable}">{label}
@@ -44,6 +45,14 @@
 					{./feed.html}
 				</tbody>
 			</table>
+			<div class="search-menu" popover="manual" role="menu">
+				<button class="search" role="menuitem" tabindex="-1" type="submit">
+					Search
+				</button>
+				<button class="reset" name="reset" role="menuitem" tabindex="-1" type="submit" value="reset">
+					Reset search filters
+				</button>
+			</div>
 			<footer>
 				<ul class="selection actions">
 					<!--selectionActions-->

@@ -9,6 +9,7 @@ import { TableFreezeInheritBorder }     from '@itrocks/table/freeze/inherit-bord
 import { TableLink }                    from '@itrocks/table/link.js'
 import { tableByElement }               from '@itrocks/table/table.js'
 import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
+import './search-menu.js'
 
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
@@ -55,7 +56,7 @@ build<HTMLTableElement>(
 		}))
 		table.addEventListener('click', event => {
 			const element = event.target
-			if ((element instanceof HTMLInputElement) || !(element instanceof HTMLElement)) return
+			if (!(element instanceof HTMLElement) || element.closest('input, button')) return
 			const cell = element.closest('table, th')
 			if (!((cell instanceof HTMLTableCellElement) && cell.classList.contains('select'))) return
 			const input = cell.querySelector<HTMLInputElement>('input[type=checkbox]')

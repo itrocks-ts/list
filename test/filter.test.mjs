@@ -10,6 +10,14 @@ class Entry
 {}
 File(require.resolve('./fixtures/filter.d.ts').replace('.d.ts', '.js'))(Entry)
 
+test('reset clears visible and saved hidden filters even when the form posts their previous values', () => {
+	const filter = new Filter({ map: callback => [callback({ name: 'text' }), callback({ name: 'year' })] })
+	filter.unserialize({ hidden: 'saved', text: 'old', year: '2000' })
+	filter.getParams({ data: { reset: 'reset', search: { text: 'nested' }, 'search.year': '2020' } })
+	assert.deepEqual(filter.serialize(), { hidden: '', text: '', year: '' })
+	assert.deepEqual({ ...filter.searchObject(Entry) }, {})
+})
+
 test('filters interpret the first hyphen as an interval with optional inclusive bounds', () => {
 	for (const [value, expected] of [
 		['2000-2010', { sql: ' BETWEEN ? AND ?', values: ['2000', '2010'] }],

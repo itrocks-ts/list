@@ -88,7 +88,10 @@ export class Filter<T extends object> extends Parameter
 		for (const property of this.columns.map(property => property.name)) {
 			this.search[property] ??= ''
 		}
-		if ('reset' in request.data) this.search = Object.fromEntries(Object.keys(this.search).map(path => [path, '']))
+		if ('reset' in request.data) {
+			this.search = Object.fromEntries(Object.keys(this.search).map(path => [path, '']))
+			return
+		}
 		const apply = (value: unknown, prefix = '') => {
 			if (!value || typeof value !== 'object' || Array.isArray(value)) return
 			for (const [name, child] of Object.entries(value)) {

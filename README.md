@@ -132,6 +132,14 @@ For `json()`, the scope is passed directly to `dataSource().search()`.
 
 ## Search filters
 
+The magnifying-glass button submits the column filters, as does Enter in a filter field.
+A long press (500 ms) or right-click on this button opens a menu with Search first and Reset search filters second,
+each with an icon and label. Releasing a long press does not submit the search.
+Reset clears all filters, including saved filters for hidden columns, and reloads the list without changing its sorting
+or column configuration. The menu does not change the selection column's width.
+Arrow Down, the context-menu key or Shift+F10 on the button also opens the menu. Use arrow keys to select an action,
+Enter or Space to activate it, and Escape to close it. Clicking outside dismisses the menu.
+
 HTML list filters interpret the first hyphen as an interval separator. Spaces around the bounds are ignored:
 
 - `2000 - 2010` uses inclusive `between(2000, 2010)`.
