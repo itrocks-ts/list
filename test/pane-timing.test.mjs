@@ -28,7 +28,7 @@ function fixture()
 	const consumer = Object.assign(Object.create(ListPropertySelect.prototype), {
 		abort: new AbortController(),
 		article: { querySelectorAll: () => [{ dataset: { property: 'number' } }, { dataset: { property: 'city' } }] },
-		content: { querySelector: () => null }, disposed: false, drag,
+		content: { closest: () => null, querySelector: () => null }, disposed: false, drag,
 		options: { saveColumns: () => { events.push('save'); return save.promise } },
 		pending: new Map(), removals: new Map(), removedColumns: new Map(), view: { selector: {
 			branchContexts: [], search: { results: [] }, usedProperties: [], setConfiguration: () => events.push('configuration')
@@ -262,6 +262,25 @@ test('explicit addition keeps existing relation columns and reveals them without
 	assert.equal(outcome.status, 'existing')
 	assert.deepEqual(f.events, [['reveal', 'city'], ['highlight', 'city']])
 })
+
+for (const width of [0, 320, 1000, 1001]) {
+	test(`locating a column folds the pane before revealing when it fills its container (${width}px)`, async () => {
+		const f = fixture(), signal = new AbortController().signal
+		f.consumer.drag = undefined
+		f.consumer.content.closest = selector => {
+			assert.equal(selector, 'aside')
+			return { offsetWidth: width, parentElement: { clientWidth: 1000 } }
+		}
+		f.consumer.pane = { close: () => f.events.push('close') }
+		f.consumer.options.addition = {
+			reveal: path => f.events.push(['reveal', path]),
+			highlight: path => f.events.push(['highlight', path])
+		}
+		const outcome = await f.consumer.select({ action: 'add', id: 'locate', path: 'city', root: 'invoice' }, signal)
+		assert.equal(outcome.status, 'existing')
+		assert.deepEqual(f.events, [...(width >= 1000 ? ['close'] : []), ['reveal', 'city'], ['highlight', 'city']])
+	})
+}
 
 test('cancelled removal reports a recoverable failure after the immediate save', async () => {
 	const f = fixture(), signal = new AbortController().signal

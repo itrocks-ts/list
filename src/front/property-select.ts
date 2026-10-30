@@ -394,7 +394,12 @@ export class ListPropertySelect implements ConsumerPort
 			}
 			signal.throwIfAborted()
 			if (this.disposed) throw new Error('List disposed')
-			if (status !== 'removed' && this.paths().includes(path)) {
+			if ((status !== 'removed') && this.paths().includes(path)) {
+				if (intent.action === 'add') {
+					const aside = this.content.closest('aside')
+					if (aside && (aside.offsetWidth > 0) && (aside.offsetWidth >= aside.parentElement!.clientWidth))
+						this.pane.close()
+				}
 				this.options.addition.reveal(path)
 				if (status === 'existing') this.options.addition.highlight(path)
 			}
