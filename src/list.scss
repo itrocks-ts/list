@@ -21,6 +21,7 @@ main > article[data-action="list"] {
 		display: grid;
 		grid-template-areas: "table" "footer";
 		grid-template-rows: 1fr min-content;
+		overflow: hidden;
 
 		> footer {
 			display: grid;
