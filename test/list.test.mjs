@@ -321,3 +321,21 @@ test('initial HTML embeds the session bootstrap; feed and configuration saves do
 	}
 	finally { listDependsOn({ access: async () => ({ authorise: async () => {} }) }) }
 })
+
+
+test('logical user filters and logical scopes remain cumulative and authorise every branch', async () => {
+	const { AND, OR } = require('@itrocks/sql-functions')
+	const { listDependsOn } = require('@itrocks/list')
+	const filter = { [OR]: { owner: 'one', text: 'two' } }
+	const scope = { [OR]: [{ tenant: 42 }, { tenant: 43 }] }
+	const authorised = []
+	listDependsOn({ access: async () => ({ authorise: async path => { authorised.push(path) } }) })
+	try {
+		const { calls, list } = listDouble({ filter })
+		await list.html(actionRequest(), scope)
+		assert.deepEqual(calls.select[0].search[AND].map(group => ({ ...group })), [filter, scope])
+		assert.equal(calls.count[0].search, calls.select[0].search)
+		for (const path of ['owner', 'text', 'tenant']) assert.ok(authorised.includes(path))
+	}
+	finally { listDependsOn({ access: async () => ({ authorise: async () => {} }) }) }
+})

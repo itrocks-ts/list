@@ -1,6 +1,9 @@
 import { Type }                from '@itrocks/class-type'
-import { Request }             from '@itrocks/request-response'
+import { representativeOf }    from '@itrocks/class-view'
 import { resolvePropertyPath } from '@itrocks/reflect-path'
+import { Request }             from '@itrocks/request-response'
+import { AND }                 from '@itrocks/sql-functions'
+import { OR }                  from '@itrocks/sql-functions'
 import { between }             from '@itrocks/sql-functions'
 import { equal }               from '@itrocks/sql-functions'
 import { greater }             from '@itrocks/sql-functions'
@@ -69,8 +72,26 @@ export class Filter<T extends object> extends Parameter
 	searchObject(type: Type)
 	{
 		const search: SearchType = {}
+		const groups: SearchType[] = []
+		const expand = (property: string, value: string, ancestors: readonly Type[] = []): SearchType => {
+			const resolved = resolvePropertyPath(type, property)
+			if (!resolved.target) {
+				const filter  = new Filter(this.columns)
+				filter.search = { [property]: value }
+				return filter.searchObject(type)
+			}
+			if (ancestors.includes(resolved.target)) throw new Error(`Cyclic search representation: ${property}`)
+			const branch = [...ancestors, resolved.target]
+			return {
+				[OR]: representativeOf(resolved.target).map(name => expand(`${property}.${String(name)}`, value, branch))
+			}
+		}
 		for (const [property, value] of Object.entries(this.search)) {
 			if (value === '') continue
+			if (resolvePropertyPath(type, property).target) {
+				groups.push(expand(property, value))
+				continue
+			}
 			const comparison   = value.match(/^(>=|<=|<>|!=|>|<|=|!)(.*)$/s)
 			const operator     = comparison ? operators[comparison[1] as keyof typeof operators] : undefined
 			const operand      = comparison ? comparison[2].trim() : value
@@ -99,6 +120,9 @@ export class Filter<T extends object> extends Parameter
 			if (lower && upper) search[property] = between(lower, upper)
 			else if (lower)     search[property] = greaterOrEqual(lower)
 			else if (upper)     search[property] = lessOrEqual(upper)
+		}
+		if (groups.length) {
+			search[AND] = groups
 		}
 		return Object.setPrototypeOf(search, type.prototype)
 	}

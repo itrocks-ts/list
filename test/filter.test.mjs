@@ -120,3 +120,29 @@ test('empty dates read by the driver render as an empty list cell', async () => 
 	initDateHtmlTransformers()
 	assert.equal(await new ListColumn(Entry, 'date').output({ kind: 'value', value: null }), '')
 })
+
+
+test('singular and collection object filters search all representatives with OR', () => {
+	const { AND, OR } = require('@itrocks/sql-functions')
+	const { Invoice } = require('./fixtures/graph.cjs')
+	for (const property of ['city', 'cities']) {
+		const filter = new Filter({ map: callback => [callback({ name: property })] })
+		filter.getParams({ data: { [`search.${property}`]: 'Fr' } })
+		const search = filter.searchObject(Invoice)
+		const branches = search[AND][0][OR]
+		assert.deepEqual(branches[0][`${property}.name`].build(), { sql: ' LIKE ?', values: ['Fr%'] })
+		assert.deepEqual(branches[1][OR][0][`${property}.country.name`].build(),
+			{ sql: ' LIKE ?', values: ['Fr%'] })
+		assert.deepEqual(filter.serialize(), { [property]: 'Fr' })
+	}
+})
+
+test('two object filters and ordinary scalar filters remain cumulative', () => {
+	const { AND } = require('@itrocks/sql-functions')
+	const { Invoice } = require('./fixtures/graph.cjs')
+	const filter = new Filter({ map: callback => ['city', 'cityOther', 'number'].map(name => callback({ name })) })
+	filter.getParams({ data: { search: { city: 'Paris', cityOther: 'Lyon', number: '=42' } } })
+	const search = filter.searchObject(Invoice)
+	assert.equal(search[AND].length, 2)
+	assert.deepEqual(search.number.build().values, ['42'])
+})

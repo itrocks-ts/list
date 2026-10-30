@@ -5,6 +5,9 @@ import { getActions }             from '@itrocks/action'
 import { Request }                from '@itrocks/action-request'
 import { Route }                  from '@itrocks/route'
 import { routeOf }                from '@itrocks/route'
+import { AND }                    from '@itrocks/sql-functions'
+import { OR }                     from '@itrocks/sql-functions'
+import { conditionPaths }         from '@itrocks/sql-functions'
 import { Identifiers }            from '@itrocks/storage'
 import { SearchType }             from '@itrocks/storage'
 import { SelectionError }         from '@itrocks/storage'
@@ -64,8 +67,15 @@ export class List<T extends object = object> extends Action<T>
 		if (!batch) save(this, request.request, type)
 
 		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
-		const search  = Object.assign(filter.searchObject(type), scope)
-		for (const path of Object.keys(search)) await access.authorise(path)
+		const filters = filter.searchObject(type)
+		// Scope values override direct user criteria; logical groups remain cumulative.
+		for (const path of Object.keys(scope ?? {})) {
+			delete filters[path]
+		}
+		const search = scope && ((scope[AND] !== undefined) || (scope[OR] !== undefined))
+			? { [AND]: [filters, scope] }
+			: Object.assign(filters, scope)
+		for (const path of conditionPaths(search))         await access.authorise(path)
 		for (const path of Object.keys(sort.sorted ?? {})) await access.authorise(path)
 		if (batch) {
 			try {

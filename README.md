@@ -155,6 +155,15 @@ Any later hyphens in an interval remain part of the upper bound.
 The original text stays in the input and session; feed requests reconstruct the same criterion from session state.
 The data source converts the bounds according to the property's type.
 
+### Object filters
+
+A filter on an object column searches every `representativeOf()` property of its target type with `OR`.
+This applies to singular objects and collections. For example, `Movie.genres` with `Genre` represented by `name`
+searches `genres.name`. Text representatives use the same prefix, comparison, interval and wildcard rules as direct
+text columns. Nested object representatives are expanded recursively; cyclic representations reject.
+Separate column filters remain combined with `AND`. Original input is retained in session.
+Logical criteria retain mandatory application scopes and authorisation checks on every expanded property path.
+
 ### Date filters
 
 Date properties use the dedicated `dateSearch()` implementation in `src/date-search.ts` before ordinary interval
