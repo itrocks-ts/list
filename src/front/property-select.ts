@@ -45,7 +45,6 @@ export class ListPropertySelect implements ConsumerPort
 		intent: SelectionIntent
 		operation: ColumnOperation
 		paths: string[]
-		restore(): void
 	}
 	private readonly observer: MutationObserver
 	private readonly pane: PaneHandle
@@ -188,19 +187,20 @@ export class ListPropertySelect implements ConsumerPort
 		if (this.disposed || this.batch || this.drag || this.pending.size) throw new Error('A column operation is pending')
 		const path = normalisePath(intent.path)
 		const added = !this.paths().includes(path)
-		const suspension = this.pane.suspend({ mobileOnly: true })
-		try {
-			if (added) this.add(path, this.abort.signal, { effects: false, hidden: true })
-			const paths = this.paths()
-			const operation = this.options.addition.beginExternal(
-				this.columnSource(path), sample, { adding: added, removal: true }
-			)
-			this.drag = { added, intent, operation, paths, restore: () => suspension.restore() }
-		}
-		catch (error) {
-			suspension.restore()
-			throw error
-		}
+		this.closeFullWidthPane()
+		if (added) this.add(path, this.abort.signal, { effects: false, hidden: true })
+		const paths = this.paths()
+		const operation = this.options.addition.beginExternal(
+			this.columnSource(path), sample, { adding: added, removal: true }
+		)
+		this.drag = { added, intent, operation, paths }
+	}
+
+	private closeFullWidthPane(): void
+	{
+		const aside = this.content.closest('aside')
+		if (aside && (aside.offsetWidth > 0) && (aside.offsetWidth >= aside.parentElement!.clientWidth))
+			this.pane.close()
 	}
 
 	private columnSource(path: string): ColumnSource
@@ -251,7 +251,6 @@ export class ListPropertySelect implements ConsumerPort
 		const drag = this.drag
 		drag.operation.cancel()
 		this.drag = undefined
-		drag.restore()
 		this.view.selector.setConfiguration({ usedPaths: this.paths() })
 	}
 
@@ -303,7 +302,6 @@ export class ListPropertySelect implements ConsumerPort
 		}
 		finally {
 			if (this.drag === drag) this.drag = undefined
-			drag.restore()
 		}
 	}
 
@@ -395,11 +393,7 @@ export class ListPropertySelect implements ConsumerPort
 			signal.throwIfAborted()
 			if (this.disposed) throw new Error('List disposed')
 			if ((status !== 'removed') && this.paths().includes(path)) {
-				if (intent.action === 'add') {
-					const aside = this.content.closest('aside')
-					if (aside && (aside.offsetWidth > 0) && (aside.offsetWidth >= aside.parentElement!.clientWidth))
-						this.pane.close()
-				}
+				if (intent.action === 'add') this.closeFullWidthPane()
 				this.options.addition.reveal(path)
 				if (status === 'existing') this.options.addition.highlight(path)
 			}

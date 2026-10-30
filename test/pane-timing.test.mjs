@@ -37,7 +37,7 @@ function fixture()
 	return { consumer, drag, events, finish, save }
 }
 
-test('pane restoration waits for a moved column to be saved', async () => {
+test('a moved column waits for persistence without reopening the pane', async () => {
 	const f = fixture(), result = f.consumer.end('drag', {})
 	assert.deepEqual(f.events, [])
 	f.finish.resolve('moved')
@@ -46,12 +46,12 @@ test('pane restoration waits for a moved column to be saved', async () => {
 	assert.equal(f.consumer.drag, f.drag)
 	f.save.resolve()
 	assert.equal((await result).status, 'moved')
-	assert.deepEqual(f.events, ['save', 'configuration', 'restore'])
+	assert.deepEqual(f.events, ['save', 'configuration'])
 	assert.equal(f.consumer.drag, undefined)
 })
 
 for (const phase of ['admission', 'save']) {
-	test(`rejection during ${phase} releases the pane token`, async () => {
+	test(`rejection during ${phase} leaves the pane closed`, async () => {
 		const f = fixture(), result = f.consumer.end('drag', {})
 		if (phase === 'save') {
 			f.finish.resolve('moved')
@@ -60,35 +60,35 @@ for (const phase of ['admission', 'save']) {
 		}
 		else f.finish.reject(new Error('Admission refused'))
 		assert.equal((await result).status, 'rejected')
-		assert.equal(f.events.at(-1), 'restore')
+		assert.equal(f.events.includes('restore'), false)
 		assert.equal(f.consumer.drag, undefined)
 	})
 }
 
-test('cancellation restores before delayed completion and never starts a save', async () => {
+test('cancellation leaves the pane closed and never starts a save', async () => {
 	const f = fixture(), result = f.consumer.end('drag', {})
 	f.consumer.cancel('drag')
-	assert.deepEqual(f.events, ['cancel', 'restore', 'configuration'])
+	assert.deepEqual(f.events, ['cancel', 'configuration'])
 	assert.equal((await result).status, 'cancelled')
-	assert.equal(f.events.filter(value => value === 'restore').length, 1)
+	assert.equal(f.events.includes('restore'), false)
 	assert.equal(f.events.includes('save'), false)
 })
 
-test('the pane folds before external geometry starts and restores on synchronous rejection', () => {
-	const f = fixture()
-	f.consumer.drag = undefined
-	f.consumer.pane = { suspend: options => {
-		assert.deepEqual(options, { mobileOnly: true })
-		f.events.push('fold')
-		return { restore: () => f.events.push('restore') }
-	} }
-	f.consumer.options.addition = { reveal() {}, beginExternal: () => {
-		assert.deepEqual(f.events, ['fold'])
-		throw new Error('Busy table')
-	} }
-	assert.throws(() => f.consumer.begin(f.drag.intent, {}), /Busy table/)
-	assert.deepEqual(f.events, ['fold', 'restore'])
-})
+for (const width of [320, 1000]) {
+	test(`drag closes a full-width pane before geometry and never reopens it after drop (${width}px)`, async () => {
+		const f = fixture()
+		f.consumer.drag = undefined
+		f.consumer.content.closest = () => ({ offsetWidth: width, parentElement: { clientWidth: 1000 } })
+		f.consumer.pane = { close: () => f.events.push('close'), open: () => assert.fail('Pane must stay closed') }
+		f.consumer.options.addition = { beginExternal: () => {
+			assert.deepEqual(f.events, width === 1000 ? ['close'] : [])
+			return { finish: async () => 'moved' }
+		} }
+		f.consumer.begin(f.drag.intent, {})
+		assert.equal((await f.consumer.end('drag', {})).status, 'moved')
+		assert.deepEqual(f.events, [...(width === 1000 ? ['close'] : []), 'configuration'])
+	})
+}
 
 test('a dropped nested property uses its translated path in the provisional header', () => {
 	const f = fixture()
@@ -152,11 +152,11 @@ test('click commits before requesting values, without a separate validation or s
 	await loading
 })
 
-test('new drops restore the pane without waiting for their values request', async () => {
+test('new drops leave the pane closed without waiting for their values request', async () => {
 	const f = fixture(), result = f.consumer.end('drag', {})
 	f.finish.resolve('added')
 	assert.equal((await result).status, 'added')
-	assert.deepEqual(f.events, ['configuration', 'restore'])
+	assert.deepEqual(f.events, ['configuration'])
 })
 
 test('new drags commit through click addition and load once before drop; existing drags only move', async () => {

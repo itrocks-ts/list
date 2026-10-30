@@ -352,10 +352,9 @@ and retain their committed order throughout the drag. New accepted drops feed re
 cancellations do not. Row-view changes and view disposal cancel transport. The desktop pane stays open, and capture is
 owned by the selector's surviving source controller. The consumer imports no home implementation, SQL or hydration code.
 
-The consumer requests `pane.suspend({ mobileOnly: true })` only when a source gesture has been recognised. The pane
-host owns its responsive breakpoint. The token is restored after acceptance and column persistence, or after
-cancellation/rejection; it never focuses the search field. View disposal removes the registration and invalidates late
-restoration. Custom pane adapters may implement the same optional suspension argument without importing `home`.
+When a source gesture is recognised, the consumer closes the pane if its rendered width fills its parent.
+It stays closed after a drop, cancellation or rejection. A narrower desktop pane stays open.
+Locating a selected column uses the same width check and closes a full-width pane before revealing the column.
 
 `node test/browser-requests.mjs` checks request counts and real mouse gestures in Chromium with synthetic HTTP data.
 It covers initial mount, click placeholders, hidden drag additions, values for 80 loaded rows before entry or drop,
