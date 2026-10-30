@@ -23,8 +23,16 @@ main > article[data-action="list"] {
 		grid-template-rows: 1fr min-content;
 
 		> footer {
+			display: grid;
 			grid-area: footer;
+			grid-template-rows: minmax(0, 0fr);
+			overflow: hidden;
 			position: relative;
+			transition: grid-template-rows .1s, visibility .1s;
+		}
+
+		&:has(> table.objects input[name=id]:checked) > footer {
+			grid-template-rows: minmax(0, 1fr);
 		}
 
 		> table.objects > tbody > tr > :not(:first-child) {
