@@ -155,12 +155,35 @@ Any later hyphens in an interval remain part of the upper bound.
 The original text stays in the input and session; feed requests reconstruct the same criterion from session state.
 The data source converts the bounds according to the property's type.
 
+### Logical expressions
+
+Each column accepts several criteria separated by `,` or `|` for `OR`, and `&` or `+` for `AND`.
+`AND` takes precedence over `OR`; parentheses override this order and can nest.
+Every leaf retains the comparison, interval, date and wildcard rules above.
+
+- `Alice, Bob` searches either text prefix.
+- `>=2000 & <2010 | =1984` means `(>=2000 AND <2010) OR =1984`.
+- `(Alice | Bob) & !*test*` requires either prefix and excludes the `test` pattern.
+- `2020 | (2021-2022 & !06/2021)` combines date periods and exclusions.
+
+Double quotes or a backslash protect logical separators and parentheses: `"Rock & Roll"`, `Paris\, Texas`
+and `"Alien (Director's Cut)"` are single criteria. `\"` protects a double quote and `\\` protects a backslash.
+Apostrophes remain ordinary characters. Quoting protects the expression grammar; use `=` for exact comparison,
+for example `="Paris, Texas"`. Spaces around operators and parentheses are ignored; spaces within a criterion remain.
+When constructing query URLs manually, encode the plus operator as `%2B` because an unencoded `+` means a space.
+
+A missing criterion, unmatched parenthesis or unclosed quote matches no rows. The complete original input remains
+in the field and session, including invalid expressions; subsequent feed requests rebuild the same query.
+
 ### Object filters
 
 A filter on an object column searches every `representativeOf()` property of its target type with `OR`.
 This applies to singular objects and collections. For example, `Movie.genres` with `Genre` represented by `name`
 searches `genres.name`. Text representatives use the same prefix, comparison, interval and wildcard rules as direct
 text columns. Nested object representatives are expanded recursively; cyclic representations reject.
+An expression applies each leaf to the target's representatives, then combines those searches with its operators.
+For example, `Comédie & Drame` on `Movie.genres` requires both genres, which may be different collection elements.
+`(Comédie | Drame) & Action` requires Action and at least one of the first two genres.
 Separate column filters remain combined with `AND`. Original input is retained in session.
 Logical criteria retain mandatory application scopes and authorisation checks on every expanded property path.
 
