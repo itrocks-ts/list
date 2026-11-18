@@ -10,7 +10,7 @@ export class HttpStateStore implements StateStore
 	private generation?: string
 
 	constructor(
-		private readonly endpoint = '/property-select/state/json',
+		private readonly endpoint = 'property-select/state/json',
 		private readonly fetcher = globalThis.fetch.bind(globalThis),
 		private initial?: { generation: string; key: string; record: StateRecord }
 	)
