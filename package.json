@@ -44,6 +44,7 @@
 		"./multiple-output": "./cjs/multiple-output.js",
 		"./projection": "./cjs/projection.js",
 		"./property-select.js": "./property-select.js",
+		"./search": "./cjs/search.js",
 		"./selector-state": "./cjs/selector-state.js",
 		"./selector-state.js": "./selector-state.js",
 		"./session-state": "./cjs/session-state.js"
@@ -97,5 +98,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.25.3"
+	"version": "0.26.0"
 }

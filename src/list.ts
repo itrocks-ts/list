@@ -5,14 +5,12 @@ import { Need }                   from '@itrocks/action'
 import { Request }                from '@itrocks/action-request'
 import { Route }                  from '@itrocks/route'
 import { routeOf }                from '@itrocks/route'
-import { AND }                    from '@itrocks/sql-functions'
-import { conditionPaths }         from '@itrocks/sql-functions'
-import { OR }                     from '@itrocks/sql-functions'
 import { dataSource }             from '@itrocks/storage'
 import { Identifiers }            from '@itrocks/storage'
 import { SearchType }             from '@itrocks/storage'
 import { SelectionError }         from '@itrocks/storage'
 import { listAccess }             from './access'
+import { listSelection }          from './access'
 import { listView }               from './access'
 import { Columns }                from './columns'
 import { projectColumns }         from './columns'
@@ -21,6 +19,8 @@ import { Filter }                 from './filter'
 import { load }                   from './persist'
 import { save }                   from './persist'
 import { ListColumn }             from './projection'
+import { captureListSearch }      from './search'
+import { listSearch }             from './search'
 import { selectorStateBootstrap } from './selector-state'
 import { selectorStateKey }       from './selector-state'
 import { prepareListSession }     from './session-state'
@@ -47,6 +47,10 @@ export class List<T extends object = object> extends Action<T>
 		const sort    = this.sort
 		const type    = request.type
 
+		const selection = listSelection()
+		const updated   = await selection?.update(request)
+		if (updated) return updated
+
 		const prepared = await prepareListSession(request)
 		if (prepared) return prepared
 		load(this, request.request, type)
@@ -68,18 +72,12 @@ export class List<T extends object = object> extends Action<T>
 		for (const column of columns) column.search = filter.search[column.name] ?? ''
 		sort.getParams(request.request, type)
 
+		const activeSearch = await listSearch(request, filter, access, scope)
+		if (captureListSearch(request, activeSearch)) return this.htmlResponse('', 204)
 		if (!batch) save(this, request.request, type)
 
 		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
-		const filters = filter.searchObject(type)
-		// Scope values override direct user criteria; logical groups remain cumulative.
-		for (const path of Object.keys(scope ?? {})) {
-			delete filters[path]
-		}
-		const search = scope && ((scope[AND] !== undefined) || (scope[OR] !== undefined))
-			? { [AND]: [filters, scope] }
-			: Object.assign(filters, scope)
-		for (const path of conditionPaths(search))         await access.authorise(path)
+		const search  = activeSearch.criteria
 		for (const path of Object.keys(sort.sorted ?? {})) await access.authorise(path)
 		if (batch) {
 			try {
@@ -161,6 +159,7 @@ export class List<T extends object = object> extends Action<T>
 			{
 				columns, count, generalActions, objects, root: access.root, search: filter.search,
 				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type,
+				selection: selectionActions.length ? await selection?.view(request, activeSearch, count) : undefined,
 				view: await listView(request)
 			},
 			request,

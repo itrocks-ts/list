@@ -35,3 +35,8 @@ No callback changes the data source, mandatory record scope or path authorisatio
 The full list template includes this view inside the article, after applied settings are persisted.
 Feed pages, column JSON and column-only persistence responses do not render this view.
 The host owns the supplied template and its data; the list does not depend on the host's view package.
+
+`listDependsOn({ selection })` can supply a header fragment, optional `footer` and `footerSummary` fragments before
+and after the selection actions, and a handler for updates. The view callback receives the request, effective list
+criteria and result count. `resolveListSearch` from `@itrocks/list/search` captures the criteria from the routed HTML
+list action, including its mandatory scope and path authorisation.
