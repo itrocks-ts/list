@@ -94,6 +94,10 @@ table.objects {
 
 	> tbody > tr {
 
+		&:has(> th.select > input[name=id]:checked) > :is(th, td) {
+			background: #edf4ff;
+		}
+
 		> th.select,
 		> th.select > input[type=checkbox] {
 			cursor: pointer;
