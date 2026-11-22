@@ -94,6 +94,11 @@ table.objects {
 
 	> tbody > tr {
 
+		> th.select,
+		> th.select > input[type=checkbox] {
+			cursor: pointer;
+		}
+
 		> td > ul {
 			display: block;
 			margin: 0;
