@@ -21,21 +21,26 @@ function contentWidth(element: HTMLElement, style: CSSStyleDeclaration): number
 
 function filterWidth(filter: HTMLElement): number
 {
-	const icon = filter.querySelector<HTMLElement>('.list-filter-icon')
-	let width  = inlineEdges(getComputedStyle(filter))
+	const icon        = filter.querySelector<HTMLElement>('.list-filter-icon')
+	const filterStyle = getComputedStyle(filter)
+	let width         = inlineEdges(filterStyle)
 	if (!icon) return width
 
 	const text = filter.querySelector<HTMLElement>('.list-filter-text')
 	const row  = icon.parentElement!
 
 	width += icon.getBoundingClientRect().width
-	const rowStyle = getComputedStyle(row)
+	const rowStyle = row === filter ? filterStyle : getComputedStyle(row)
 	if (row !== filter) {
 		width += inlineEdges(rowStyle)
 	}
 	if (text) {
 		const textStyle = getComputedStyle(text)
 		width += gapWidth(rowStyle, 2) + Math.max(contentWidth(text, textStyle), pixels(textStyle.minWidth))
+	}
+	const resetWidth = filter.querySelector('.list-filter-reset')?.getBoundingClientRect().width ?? 0
+	if (resetWidth) {
+		width += gapWidth(filterStyle, 2) + resetWidth
 	}
 	return width
 }
@@ -88,7 +93,9 @@ function watchToolbar(toolbar: HTMLElement): void
 		resize.observe(element)
 	}
 	const mutations = new MutationObserver(schedule)
-	mutations.observe(toolbar, { attributeFilter: ['hidden'], characterData: true, childList: true, subtree: true })
+	mutations.observe(toolbar, {
+		attributeFilter: ['data-filled', 'hidden'], characterData: true, childList: true, subtree: true
+	})
 
 	for (const event of ['focusin', 'focusout', 'input']) {
 		toolbar.addEventListener(event, schedule, { signal: abort.signal })

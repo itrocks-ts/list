@@ -304,52 +304,6 @@ table.objects > thead > tr.properties > th {
 	}
 }
 
-article[data-action="list"] > form > .search-menu {
-	background: white;
-	border: 1px solid #ccc;
-	border-radius: 4px;
-	box-shadow: 0 3px 12px #0003;
-	color: #333;
-	inset: auto;
-	margin: 0;
-	max-height: calc(100dvh - 8px);
-	max-width: calc(100vw - 8px);
-	padding: 4px;
-	position: fixed;
-
-	> button {
-		align-items: center;
-		background: none;
-		border: 0;
-		border-radius: 2px;
-		color: inherit;
-		cursor: pointer;
-		display: flex;
-		font: inherit;
-		gap: 10px;
-		min-height: 44px;
-		padding: 8px 12px;
-		text-align: left;
-		width: 100%;
-
-		&::before {
-			background: currentColor;
-			content: '';
-			flex: 0 0 24px;
-			height: 24px;
-			mask: url('search.svg') center / contain no-repeat;
-		}
-
-		&.reset::before {
-			mask-image: url('filter-reset.svg');
-		}
-
-		&:focus-visible, &:hover {
-			background: #eee;
-		}
-	}
-}
-
 main > article[data-action="list"] > header > .list-toolbar {
 	--list-toolbar-gap: 5px;
 
@@ -463,6 +417,30 @@ main > article[data-action="list"] > header > .list-toolbar {
 
 	button.list-filter-icon {
 		cursor: pointer;
+	}
+
+	> .list-filter-reset {
+		background: transparent;
+		border: 0;
+		border-radius: 2px;
+		color: #666;
+		cursor: pointer;
+		display: none;
+		flex: none;
+		font-size: 22px;
+		height: 36px;
+		line-height: 1;
+		padding: 0;
+		touch-action: manipulation;
+		width: 32px;
+
+		&:hover {
+			background-color: #eee;
+		}
+	}
+
+	&:has(.list-filter-text:not([data-filled='false'])) > .list-filter-reset {
+		display: block;
 	}
 
 	.list-filter-text {

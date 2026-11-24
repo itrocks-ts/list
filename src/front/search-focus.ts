@@ -16,9 +16,14 @@ build<HTMLFormElement, 'call'>({
 		bound.add(form)
 		let column: string | undefined
 
+		form.querySelector<HTMLInputElement>('.search-submit')?.addEventListener('pointerdown', event => {
+			if (event.isPrimary && event.button === 0 && focusedColumn(form)) {
+				event.preventDefault()
+			}
+		})
 		form.addEventListener('submit', event => {
 			const submitter = event.submitter
-			column = (!submitter || submitter.matches('.search-submit, .search-menu .search'))
+			column = (!submitter || submitter.matches('.search-submit'))
 				? focusedColumn(form)?.name.slice('search.'.length)
 				: undefined
 		}, { capture: true })
@@ -39,4 +44,13 @@ build<HTMLFormElement, 'call'>({
 	},
 	priority: 2000,
 	selector: 'article[data-action="list"] > form'
+})
+
+build<HTMLButtonElement, 'click'>('.list-filter > .list-filter-reset', 'click', function () {
+	const form = this.closest('article[data-action="list"]')?.querySelector<HTMLFormElement>(':scope > form')
+	if (!form) return
+	const reset = form.querySelector<HTMLButtonElement>('button[name="reset"]')
+	if (reset) {
+		form.requestSubmit(reset)
+	}
 })

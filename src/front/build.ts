@@ -10,7 +10,7 @@ import { TableLink }                    from '@itrocks/table/link.js'
 import { tableByElement }               from '@itrocks/table/table.js'
 import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
 import './column-filter.js'
-import './search-menu.js'
+import './search-focus.js'
 import './toolbar.js'
 
 build<HTMLTableElement>(
