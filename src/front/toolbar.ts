@@ -12,6 +12,13 @@ function actionsWidth(actions: HTMLElement): number
 		+ items.reduce((width, item) => width + item.getBoundingClientRect().width, 0)
 }
 
+function contentWidth(element: HTMLElement, style: CSSStyleDeclaration): number
+{
+	const range = document.createRange()
+	range.selectNodeContents(element)
+	return range.getBoundingClientRect().width + inlineEdges(style)
+}
+
 function filterWidth(filter: HTMLElement): number
 {
 	const icon = filter.querySelector<HTMLElement>('.list-filter-icon')
@@ -27,11 +34,8 @@ function filterWidth(filter: HTMLElement): number
 		width += inlineEdges(rowStyle)
 	}
 	if (text) {
-		const range = document.createRange()
-		range.selectNodeContents(text)
-		const textStyle    = getComputedStyle(text)
-		const contentWidth = range.getBoundingClientRect().width + inlineEdges(textStyle)
-		width += gapWidth(rowStyle, 2) + Math.max(contentWidth, pixels(textStyle.minWidth))
+		const textStyle = getComputedStyle(text)
+		width += gapWidth(rowStyle, 2) + Math.max(contentWidth(text, textStyle), pixels(textStyle.minWidth))
 	}
 	return width
 }
@@ -67,8 +71,9 @@ function watchToolbar(toolbar: HTMLElement): void
 		frame = undefined
 		const style     = getComputedStyle(toolbar)
 		const available = toolbar.getBoundingClientRect().width - inlineEdges(style)
-		const required  = actionsWidth(actions) + filterWidth(filter) + count.getBoundingClientRect().width
-			+ add.getBoundingClientRect().width + gapWidth(style, add.hidden ? 3 : 4)
+		const gaps      = (add.hidden ? 2 : 3) * pixels(style.getPropertyValue('--list-toolbar-gap'))
+		const required  = actionsWidth(actions) + filterWidth(filter) + contentWidth(count, getComputedStyle(count))
+			+ add.getBoundingClientRect().width + gaps
 
 		toolbar.toggleAttribute('data-filter-row', required > available)
 	}

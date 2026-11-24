@@ -351,10 +351,12 @@ article[data-action="list"] > form > .search-menu {
 }
 
 main > article[data-action="list"] > header > .list-toolbar {
+	--list-toolbar-gap: 5px;
+
 	align-items: center;
 	border-bottom: 1px solid #ccc;
 	display: grid;
-	gap: 5px;
+	gap: var(--list-toolbar-gap);
 	grid-template-areas: "actions filter count add";
 	grid-template-columns: auto minmax(0, 1fr) auto max-content;
 
@@ -364,6 +366,7 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	&[data-filter-row] {
+		gap: 0;
 		grid-template-areas:
 			"actions count  count"
 			"filter  filter add";
@@ -376,9 +379,24 @@ main > article[data-action="list"] > header > .list-toolbar {
 			grid-template-columns: minmax(0, 1fr) auto;
 		}
 
+		> :is(.general.actions, .summary) {
+			align-self: stretch;
+			border-bottom: 1px solid #ccc;
+		}
+
 		> .general.actions {
 			flex-wrap: wrap;
 			overflow-x: auto;
+		}
+
+		> .list-filter {
+			align-self: stretch;
+		}
+
+		> .summary {
+			align-content: center;
+			justify-self: stretch;
+			text-align: end;
 		}
 	}
 
@@ -418,6 +436,7 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	> .summary {
+		display: inline-block;
 		grid-area: count;
 		justify-self: end;
 		padding: 5px 10px;
