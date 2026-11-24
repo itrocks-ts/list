@@ -114,7 +114,7 @@ try {
 	assert.equal((await submitted()).reset, undefined)
 	assert.equal((await submitted()).focusListColumn, 'title')
 	await trigger.click()
-	assert.equal((await submitted()).focusListColumn, 'title', 'The magnifier preserves column focus')
+	assert.equal((await submitted()).focusListColumn, 'title', 'The column search button preserves column focus')
 	const rect = await trigger.boundingBox()
 	const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2
 	await page.mouse.move(x, y)

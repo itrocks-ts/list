@@ -102,7 +102,7 @@ For `json()`, the scope is passed directly to `dataSource().search()`.
 
 ## Search filters
 
-The magnifying-glass button submits the column filters, as does Enter in a filter field.
+The filter button in the first column submits the column filters, as does Enter in a filter field.
 When the toolbar shows a filter, the reset button appears immediately to its right.
 Reset clears all filters, including saved filters for hidden columns, and reloads the list with its current sorting and columns.
 
