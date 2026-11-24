@@ -76,7 +76,37 @@ try {
 	assert.equal(await reset.textContent(), '×')
 	assert.equal(await onRight(), true)
 	assert.equal(await page.locator('.search-menu').count(), 0)
+	const appearance = () => trigger.evaluate(button => {
+		const style = getComputedStyle(button)
+		return {
+			background:   style.backgroundColor,
+			cell:         getComputedStyle(button.closest('th')).backgroundColor,
+			outline:      style.outlineStyle,
+			outlineColor: style.outlineColor,
+			outlineWidth: style.outlineWidth,
+			shadow:       style.boxShadow
+		}
+	})
+	const resting = await appearance()
+	await trigger.hover()
+	const hovered = await appearance()
+	assert.notEqual(hovered.background, resting.background)
+	assert.notEqual(hovered.background, hovered.cell)
+	await page.mouse.move(0, 0)
+	await reset.focus()
+	await page.keyboard.press('Tab')
+	assert.equal(await trigger.evaluate(button => button.matches(':focus-visible')), true)
+	const keyboard = await appearance()
+	assert.equal(keyboard.background, hovered.background)
+	assert.equal(keyboard.outline, 'solid')
+	assert.equal(keyboard.outlineColor, 'rgb(128, 128, 128)')
+	assert.equal(keyboard.outlineWidth, '1px')
+	assert.equal(keyboard.shadow, 'none')
+	await reset.focus()
 	await trigger.click()
+	const clicked = await appearance()
+	assert.equal(clicked.outline, 'none')
+	assert.equal(clicked.shadow, 'none')
 	assert.equal(await count(), 1, 'A short click submits once')
 	assert.equal((await submitted())['search.title'], 'Movie')
 	await column.press('Enter')

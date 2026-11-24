@@ -1,3 +1,4 @@
+$filter-control-hover: #eee;
 $filter-value-background: #d5edff;
 $filter-value-color: #12365b;
 
@@ -270,8 +271,22 @@ table.objects > thead > tr.properties > th {
 		font-size: 0;
 		padding: 0;
 		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
 		-webkit-touch-callout: none;
 		width: 28px;
+
+		&:hover, &:focus, &:active {
+			background-color: #e3e3e3;
+		}
+
+		&:focus {
+			outline: none;
+		}
+
+		&:focus-visible {
+			outline: 1px solid #808080;
+			outline-offset: -1px;
+		}
 	}
 
 	> input[data-property-filter] {
@@ -298,7 +313,7 @@ table.objects > thead > tr.properties > th {
 		width: calc(100% + 1.2em + 16px);
 	}
 
-	> input:focus {
+	> input:focus:not(.search-submit) {
 		box-shadow: inset 0 0 0 2px Highlight, var(--column-reorder-tint, 0 0 transparent);
 		outline: none;
 	}
@@ -406,37 +421,36 @@ main > article[data-action="list"] > header > .list-toolbar {
 	min-width: 0;
 
 	.list-filter-icon {
-		background: url('filter.svg') center / contain no-repeat;
-		border: 0;
-		display: inline-block;
+		background: url('filter.svg') center / 18px no-repeat;
+	}
+
+	span.list-filter-icon {
 		flex: none;
 		height: 18px;
-		padding: 0;
 		width: 18px;
 	}
 
-	button.list-filter-icon {
-		cursor: pointer;
-	}
-
-	> .list-filter-reset {
-		background: transparent;
+	button.list-filter-icon, > .list-filter-reset {
 		border: 0;
 		border-radius: 2px;
-		color: #666;
 		cursor: pointer;
-		display: none;
 		flex: none;
-		font-size: 22px;
 		height: 36px;
-		line-height: 1;
 		padding: 0;
 		touch-action: manipulation;
 		width: 32px;
 
 		&:hover {
-			background-color: #eee;
+			background-color: $filter-control-hover;
 		}
+	}
+
+	> .list-filter-reset {
+		background: transparent;
+		color: #666;
+		display: none;
+		font-size: 22px;
+		line-height: 1;
 	}
 
 	&:has(.list-filter-text:not([data-filled='false'])) > .list-filter-reset {
