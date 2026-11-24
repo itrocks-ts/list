@@ -9,6 +9,7 @@ import { dataSource }             from '@itrocks/storage'
 import { Identifiers }            from '@itrocks/storage'
 import { SearchType }             from '@itrocks/storage'
 import { SelectionError }         from '@itrocks/storage'
+import { ListView }               from './access'
 import { listAccess }             from './access'
 import { listSelection }          from './access'
 import { listView }               from './access'
@@ -16,6 +17,8 @@ import { Columns }                from './columns'
 import { projectColumns }         from './columns'
 import { Feed }                   from './feed'
 import { Filter }                 from './filter'
+import { filterAliases }          from './filter-summary'
+import { filterSummary }          from './filter-summary'
 import { load }                   from './persist'
 import { save }                   from './persist'
 import { ListColumn }             from './projection'
@@ -26,7 +29,7 @@ import { selectorStateKey }       from './selector-state'
 import { prepareListSession }     from './session-state'
 import { Sort }                   from './sort'
 
-export { listDependsOn } from './access'
+export { listAccess, listDependsOn } from './access'
 export type { ListAccess, ListDependencies, ListView } from './access'
 
 @Need('Store', 'new')
@@ -38,6 +41,11 @@ export class List<T extends object = object> extends Action<T>
 	feed    = new Feed
 	filter  = new Filter(this.columns)
 	sort    = new Sort(this.columns)
+
+	protected filterBar(request: Request<T>): ListView
+	{
+		return filterSummary(this.filter.search, filterAliases(request.type, this.columns))
+	}
 
 	async html(request: Request<T>, scope?: SearchType<T>)
 	{
@@ -68,7 +76,7 @@ export class List<T extends object = object> extends Action<T>
 		}
 
 		feed.getParams(request.request)
-		filter.getParams(request.request)
+		filter.getParams(request.request, type)
 		for (const column of columns) column.search = filter.search[column.name] ?? ''
 		sort.getParams(request.request, type)
 
@@ -155,9 +163,12 @@ export class List<T extends object = object> extends Action<T>
 			const metadata = await access.bootstrap([...columns].map(column => column.name), state.record)
 			selectorBootstrap = encodeURIComponent(JSON.stringify({ ...state, ...metadata }))
 		}
+		const focus       = request.request.method === 'POST' ? request.request.data.focusListColumn : undefined
+		const focusColumn = [...columns].find(column => column.field === focus)?.field ?? ''
 		return this.htmlTemplateResponse(
 			{
-				columns, count, generalActions, objects, root: access.root, search: filter.search,
+				columns, count, filterBar: this.filterBar(request), focusColumn, generalActions, objects,
+				root: access.root, search: filter.search,
 				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type,
 				selection: selectionActions.length ? await selection?.view(request, activeSearch, count) : undefined,
 				view: await listView(request)

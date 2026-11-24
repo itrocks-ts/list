@@ -41,7 +41,11 @@
 	},
 	"exports": {
 		".": "./cjs/list.js",
+		"./column-filter.js": "./column-filter.js",
+		"./filter": "./cjs/filter.js",
+		"./filter-summary": "./cjs/filter-summary.js",
 		"./multiple-output": "./cjs/multiple-output.js",
+		"./parameter": "./cjs/parameter.js",
 		"./projection": "./cjs/projection.js",
 		"./property-select.js": "./property-select.js",
 		"./search": "./cjs/search.js",
@@ -98,5 +102,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.26.0"
+	"version": "0.27.0"
 }

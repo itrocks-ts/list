@@ -20,6 +20,7 @@ import { applyTransformer }            from '@itrocks/transformer'
 import { HTML }                        from '@itrocks/transformer'
 import { OUTPUT }                      from '@itrocks/transformer'
 import { resolveTransformer }          from '@itrocks/transformer'
+import { escapeFilterText }            from './filter-summary'
 import { multipleOutputOf }            from './multiple-output'
 
 type RepresentationProperty = ReturnType<typeof resolvePropertyPath>['property']
@@ -105,6 +106,11 @@ export class ListColumn
 		if (this.component) this.fields = this.component.column.fields
 		if (resolved.target && !this.multiple)
 			this.fields = representationFields(resolved.target, [], resolved.property)
+	}
+
+	get escapedSearch(): string
+	{
+		return escapeFilterText(this.search)
 	}
 
 	async output(cell: ProjectionCell): Promise<string>

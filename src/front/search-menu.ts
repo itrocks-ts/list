@@ -1,4 +1,5 @@
-import { build } from '@itrocks/build/build.js'
+import { build }         from '@itrocks/build/build.js'
+import { focusedColumn } from './search-focus.js'
 
 const bound = new WeakSet<HTMLFormElement>()
 
@@ -90,6 +91,9 @@ build<HTMLFormElement>('article[data-action="list"] > form', form => {
 		cancel()
 		suppressClick = false
 		if (!event.isPrimary || (event.button !== 0)) return
+		if (focusedColumn(form)) {
+			event.preventDefault()
+		}
 		pointer = { id: event.pointerId, x: event.clientX, y: event.clientY }
 		trigger.setPointerCapture(event.pointerId)
 		timer = setTimeout(() => {

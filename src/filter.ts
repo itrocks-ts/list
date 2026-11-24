@@ -21,6 +21,7 @@ import { trReverse }           from '@itrocks/translate'
 import { Columns }             from './columns'
 import { dateSearch }          from './date-search'
 import { Parameter }           from './parameter'
+import { SearchComparison }    from './search-expression'
 import { SearchExpression }    from './search-expression'
 import { searchExpression }    from './search-expression'
 
@@ -37,11 +38,22 @@ const operators = {
 	'>=': greaterOrEqual
 }
 
+function explicitSearchValue(propertyType: unknown, operator: SearchComparison, value: string): unknown
+{
+	if (propertyType === Date)   return dateSearch(value, operator === ':' ? '=' : operator)
+	if (operator !== ':')        return operators[operator](value)
+	if (propertyType !== String) return value
+	return like(value.replace(/[\\%_]/g, '\\$&') + '%')
+}
+
 function searchValue(propertyType: unknown, expression: SearchExpression): unknown
 {
 	if (!('value' in expression)) {
 		const combine = (expression.operator === 'AND') ? and : or
 		return combine(...expression.operands.map(operand => searchValue(propertyType, operand) ?? or()))
+	}
+	if (expression.comparison !== undefined) {
+		return explicitSearchValue(propertyType, expression.comparison, expression.value)
 	}
 	let   value = expression.value
 	const alias = value.trim().match(/^(!=|<>|!)?\s*(.+)$/s)
@@ -83,7 +95,42 @@ export class Filter<T extends object> extends Parameter
 		super()
 	}
 
-	getParams(request: Request)
+	protected columnCondition(type: Type, property: string, value: string): SearchType
+	{
+		let expression: SearchExpression
+		try { expression = searchExpression(value) }
+		catch (error) {
+			if (!(error instanceof SyntaxError)) throw error
+			return { [property]: or() }
+		}
+		const resolved = resolvePropertyPath(type, property)
+		if (resolved.target) return this.condition(type, property, expression)
+
+		const criterion = searchValue(resolved.property.type.type, expression)
+		return (criterion === undefined) ? {} : { [property]: criterion }
+	}
+
+	protected condition(type: Type, property: string, expression: SearchExpression, ancestors: readonly Type[] = [])
+		: SearchType
+	{
+		const resolved = resolvePropertyPath(type, property)
+		if (!resolved.target) {
+			const value = searchValue(resolved.property.type.type, expression)
+			return { [property]: value ?? or() }
+		}
+		if (!('value' in expression)) {
+			const operator = (expression.operator === 'AND') ? AND : OR
+			return { [operator]: expression.operands.map(operand => this.condition(type, property, operand, ancestors)) }
+		}
+		if (ancestors.includes(resolved.target)) throw new Error(`Cyclic search representation: ${property}`)
+		const branch = [...ancestors, resolved.target]
+		return {
+			[OR]: representativeOf(resolved.target)
+				.map(name => this.condition(type, `${property}.${String(name)}`, expression, branch))
+		}
+	}
+
+	getParams(request: Request, _type?: Type)
 	{
 		for (const property of this.columns.map(property => property.name)) {
 			this.search[property] ??= ''
@@ -117,36 +164,14 @@ export class Filter<T extends object> extends Parameter
 	{
 		const search: SearchType   = {}
 		const groups: SearchType[] = []
-		const expand = (property: string, expression: SearchExpression, ancestors: readonly Type[] = []): SearchType => {
-			const resolved = resolvePropertyPath(type, property)
-			if (!resolved.target) {
-				const value = searchValue(resolved.property.type.type, expression)
-				return { [property]: value ?? or() }
-			}
-			if (!('value' in expression)) {
-				const operator = (expression.operator === 'AND') ? AND : OR
-				return { [operator]: expression.operands.map(operand => expand(property, operand, ancestors)) }
-			}
-			if (ancestors.includes(resolved.target)) throw new Error(`Cyclic search representation: ${property}`)
-			const branch = [...ancestors, resolved.target]
-			return {
-				[OR]: representativeOf(resolved.target).map(name => expand(`${property}.${String(name)}`, expression, branch))
-			}
-		}
 		for (const [property, value] of Object.entries(this.search)) {
 			if (value === '') continue
-			let expression: SearchExpression
-			try { expression = searchExpression(value) }
-			catch (error) {
-				if (!(error instanceof SyntaxError)) throw error
-				search[property] = or()
-				continue
+			const condition = this.columnCondition(type, property, value)
+			if (Object.hasOwn(condition, AND) || Object.hasOwn(condition, OR)) {
+				groups.push(condition)
 			}
-			const resolved = resolvePropertyPath(type, property)
-			if (resolved.target) groups.push(expand(property, expression))
 			else {
-				const criterion = searchValue(resolved.property.type.type, expression)
-				if (criterion !== undefined) search[property] = criterion
+				Object.assign(search, condition)
 			}
 		}
 		if (groups.length) search[AND] = groups

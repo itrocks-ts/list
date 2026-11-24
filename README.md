@@ -30,6 +30,13 @@ JSON payload depending on the requested format.
 HTML rendering provides columns, filters, ordered sorting and session preferences. The JSON action exposes
 business objects for API consumers. See the public methods below for their shared contracts.
 
+Column filter values use the same text highlight as the toolbar summary.
+After applying column filters, the toolbar shows a decorative filter icon and a read-only summary.
+The summary uses unique single-word column labels when available.
+Applying a search from a column filter returns focus to that field and selects its full value.
+When the toolbar runs out of space, the filter and add-column button move to a second row.
+Use [@itrocks/list-filter](https://github.com/itrocks-ts/list-filter) to make the summary editable.
+
 ## API
 
 ### `class List<T extends object = object> extends Action<T>`

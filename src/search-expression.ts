@@ -1,5 +1,7 @@
 
-export type SearchExpression = { value: string } | {
+export type SearchComparison = ':' | '=' | '!=' | '<' | '<=' | '>' | '>='
+
+export type SearchExpression = { comparison?: SearchComparison; value: string } | {
 	operator: 'AND' | 'OR'
 	operands: SearchExpression[]
 }

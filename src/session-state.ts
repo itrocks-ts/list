@@ -4,10 +4,13 @@ import { Request as ServerRequest } from '@itrocks/request-response'
 import { Response }                 from '@itrocks/request-response'
 import { routeOf }                  from '@itrocks/route'
 
+export type ListQueryState = { fields: Record<string, string>; syntax?: 'logical'; text: string }
+
 export type ListState = {
-	columns?: string[]
-	filter?:  Record<string, string>
-	sort?:    [string, boolean][]
+	columns?:   string[]
+	filter?:    Record<string, string>
+	listQuery?: ListQueryState
+	sort?:      [string, boolean][]
 }
 
 export type ListSessionDependencies = {
@@ -28,7 +31,12 @@ export function listSessionDependsOn(overrides: Partial<ListSessionDependencies>
 export function listState(request: ServerRequest, type: Type): ListState
 {
 	const state = request.session.list?.[routeOf(type)] ?? {}
-	return structuredClone({ columns: state.columns, filter: state.filter, sort: state.sort })
+	return structuredClone({
+		columns: state.columns,
+		filter:  state.filter,
+		...(state.listQuery ? { listQuery: state.listQuery } : {}),
+		sort:    state.sort
+	})
 }
 
 export function replaceListState(request: ServerRequest, type: Type, state?: ListState): void
@@ -55,6 +63,7 @@ export function comparableListState(state: ListState): string
 		filter:  Object.entries(state.filter ?? {})
 			.filter(([, value]) => value !== '')
 			.sort(([left], [right]) => left.localeCompare(right)),
+		listQuery: state.listQuery || undefined,
 		sort: state.sort
 	})
 }

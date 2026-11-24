@@ -19,15 +19,22 @@
 		<!--view-->{{template}}<!--end-->
 		<header>
 			<h2>{type.@output.ucFirst} list</h2>
-			<button class="add-column" hidden type="button" aria-label="Add column">+</button>
-			<section class="summary">{count} elements</section>
-			<ul class="general actions">
-				<!--generalActions-->
-				<li class="{action}">{{template}}</li>
-				<!--end-->
-			</ul>
+			<div class="list-toolbar">
+				<ul class="general actions">
+					<!--generalActions-->
+					<li class="{action}">{{template}}</li>
+					<!--end-->
+				</ul>
+				<div class="list-filter">
+					<!--filterBar-->{{template}}<!--end-->
+				</div>
+				<span class="summary">{count} elements</span>
+				<button class="add-column" hidden type="button" aria-label="Add column">+</button>
+			</div>
 		</header>
-		<form action="app://(type.@route)/list" autocomplete="off" method="post" target="main">
+		<form action="app://(type.@route)/list" autocomplete="off" data-focus-column="{focusColumn}"
+			method="post" target="main">
+			<!--filterBar--><!--formFields-->{{template}}<!--end--><!--end-->
 			<table class="objects" data-link="{type.@route}">
 				<thead>
 					<tr class="properties">
@@ -37,7 +44,7 @@
 						<!--columns-->
 						<th data-property="{name}" data-reverse="{?reverse}" data-sort="{?sort}"
 							data-sortable="{sortable}">{label}
-							<input aria-label="Filter {label}" data-property-filter="{name}" name="search.{field}" value="{search}">
+							<input aria-label="Filter {label}" data-property-filter="{name}" name="search.{field}" value="{escapedSearch}">
 						</th>
 						<!--end-->
 					</tr>

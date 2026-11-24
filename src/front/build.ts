@@ -9,7 +9,9 @@ import { TableFreezeInheritBorder }     from '@itrocks/table/freeze/inherit-bord
 import { TableLink }                    from '@itrocks/table/link.js'
 import { tableByElement }               from '@itrocks/table/table.js'
 import { xTargetCall }                  from '@itrocks/xtarget/xtarget.js'
+import './column-filter.js'
 import './search-menu.js'
+import './toolbar.js'
 
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',

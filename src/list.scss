@@ -1,3 +1,5 @@
+$filter-value-background: #d5edff;
+$filter-value-color: #12365b;
 
 html.column-reorder,
 html.column-reorder * {
@@ -5,17 +7,6 @@ html.column-reorder * {
 }
 
 main > article[data-action="list"] {
-
-	> header {
-		position: relative;
-
-		> .summary {
-			padding: 13px 10px 12px;
-			position: absolute;
-			right: 48px;
-			white-space: nowrap;
-		}
-	}
 
 	> form {
 		display: grid;
@@ -242,25 +233,6 @@ table.objects {
 	}
 }
 
-main > article[data-action="list"] > header > .add-column {
-	background: white;
-	border: 0;
-	border-bottom: 1px solid #ccc;
-	border-left: 1px solid #ccc;
-	border-radius: 0;
-	bottom: 0;
-	cursor: pointer;
-	font-size: 16px;
-	position: absolute;
-	right: 0;
-	top: 0;
-	width: 44px;
-
-	&:hover {
-		background-color: #f4f4f4;
-	}
-}
-
 table.objects > thead > tr.properties > th {
 	line-height: 28px;
 	padding-block: 0;
@@ -306,6 +278,20 @@ table.objects > thead > tr.properties > th {
 		border-left: 1px solid #d8d8d8;
 		margin-left: -.6em;
 		width: calc(100% + 1.2em);
+
+		&[data-filter-value] {
+			background-clip: content-box, border-box;
+			background-image: linear-gradient($filter-value-background, $filter-value-background), none;
+			background-origin: content-box;
+			background-position: left var(--list-filter-text-offset, 0px) center;
+			background-repeat: no-repeat;
+			background-size: var(--list-filter-text-width, 0px) 1.2em;
+			color: $filter-value-color;
+
+			&:dir(rtl) {
+				background-position: right var(--list-filter-text-offset, 0px) center;
+			}
+		}
 	}
 
 	&[data-sort] > input[data-property-filter] {
@@ -361,5 +347,119 @@ article[data-action="list"] > form > .search-menu {
 		&:focus-visible, &:hover {
 			background: #eee;
 		}
+	}
+}
+
+main > article[data-action="list"] > header > .list-toolbar {
+	align-items: center;
+	border-bottom: 1px solid #ccc;
+	display: grid;
+	gap: 5px;
+	grid-template-areas: "actions filter count add";
+	grid-template-columns: auto minmax(0, 1fr) auto max-content;
+
+	&:has(> .add-column[hidden]) {
+		grid-template-areas: "actions filter count";
+		grid-template-columns: auto minmax(0, 1fr) auto;
+	}
+
+	&[data-filter-row] {
+		grid-template-areas:
+			"actions count  count"
+			"filter  filter add";
+		grid-template-columns: minmax(0, 1fr) auto max-content;
+
+		&:has(> .add-column[hidden]) {
+			grid-template-areas:
+				"actions count"
+				"filter  filter";
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+
+		> .general.actions {
+			flex-wrap: wrap;
+			overflow-x: auto;
+		}
+	}
+
+	> .add-column {
+		align-self: stretch;
+		background: white;
+		border: 0;
+		border-left: 1px solid #ccc;
+		border-radius: 0;
+		cursor: pointer;
+		font-size: 16px;
+		grid-area: add;
+		justify-self: end;
+		min-width: 44px;
+		white-space: nowrap;
+
+		&:hover {
+			background-color: #f4f4f4;
+		}
+	}
+
+	> .list-filter {
+		grid-area: filter;
+		padding-inline: 5px;
+	}
+
+	> .general.actions {
+		border-bottom: 0;
+		flex-wrap: nowrap;
+		grid-area: actions;
+		min-width: 0;
+
+		> li {
+			flex: none;
+			white-space: nowrap;
+		}
+	}
+
+	> .summary {
+		grid-area: count;
+		justify-self: end;
+		padding: 5px 10px;
+		white-space: nowrap;
+	}
+}
+
+.list-filter {
+	align-items: center;
+	display: flex;
+	flex: 1;
+	gap: .4em;
+	min-width: 0;
+
+	.list-filter-icon {
+		background: url('filter.svg') center / contain no-repeat;
+		border: 0;
+		display: inline-block;
+		flex: none;
+		height: 18px;
+		padding: 0;
+		width: 18px;
+	}
+
+	button.list-filter-icon {
+		cursor: pointer;
+	}
+
+	.list-filter-text {
+		border-bottom: 1px dotted #888;
+		flex: 1;
+		min-width: 0;
+		overflow-x: auto;
+		white-space: pre;
+	}
+
+	code {
+		font: inherit;
+	}
+
+	.list-filter-value {
+		background: $filter-value-background;
+		color: $filter-value-color;
 	}
 }

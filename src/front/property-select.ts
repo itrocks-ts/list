@@ -56,8 +56,8 @@ export class ListPropertySelect implements ConsumerPort
 
 	constructor(private readonly article: HTMLElement, private readonly options: ListSelectorOptions)
 	{
+		this.button   = article.querySelector<HTMLButtonElement>(':scope > header .add-column')!
 		const content = this.content
-		this.button = article.querySelector<HTMLButtonElement>('.add-column')!
 		const initial = article.dataset.selectorBootstrap
 			? JSON.parse(decodeURIComponent(article.dataset.selectorBootstrap)) as {
 				generation: string; record: StateRecord; template: string; translations?: Record<string, string>
@@ -93,10 +93,10 @@ export class ListPropertySelect implements ConsumerPort
 		paths: readonly string[], columns: readonly string[], signal: AbortSignal, single = false
 	): Promise<Map<string, ColumnContent>>
 	{
-		const form = this.article.querySelector<HTMLFormElement>('form')!
+		const form  = this.article.querySelector<HTMLFormElement>(':scope > form')!
 		const table = this.article.querySelector<HTMLTableElement>('table.objects')!
-		const rows = [...table.tBodies[0].rows]
-		const ids = rows.map(row => row.querySelector<HTMLInputElement>('input[name=id]')!.value)
+		const rows  = [...table.tBodies[0].rows]
+		const ids   = rows.map(row => row.querySelector<HTMLInputElement>('input[name=id]')!.value)
 		const query = new URLSearchParams({ columns: columns.join(','), rowIds: ids.join(',') })
 		query.set(single ? 'column' : 'loadColumns', paths.join(','))
 		const combined = AbortSignal.any([signal, this.abort.signal])
@@ -120,14 +120,14 @@ export class ListPropertySelect implements ConsumerPort
 
 	private columnContent(result: ColumnResponse, ids: readonly string[], table: HTMLTableElement): ColumnContent
 	{
-		const path = result.path
+		const path   = result.path
 		const values = new Map(result.rows.map(row => [String(row.id), row.html]))
 		if (ids.some(id => !values.has(id))) throw new Error('The row scope changed; reload the list')
 		const header = document.createElement('th')
 		header.dataset.property = path
 		header.dataset.sortable = String(result.sortable)
 		const input = document.createElement('input')
-		input.name = `search.${encodeURIComponent(path).replaceAll('.', '%2E')}`
+		input.name  = `search.${encodeURIComponent(path).replaceAll('.', '%2E')}`
 		input.dataset.propertyFilter = path
 		input.setAttribute('aria-label', `Filter ${result.label}`)
 		const previous = [...table.tHead!.rows[0].cells].find(header => header.dataset.property === path)
