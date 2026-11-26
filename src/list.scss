@@ -458,7 +458,6 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	.list-filter-text {
-		border-bottom: 1px dotted #888;
 		flex: 1;
 		min-width: 0;
 		overflow-x: auto;
@@ -467,6 +466,10 @@ main > article[data-action="list"] > header > .list-toolbar {
 
 	code {
 		font: inherit;
+	}
+
+	.list-filter-criterion {
+		text-decoration: underline dotted #888;
 	}
 
 	.list-filter-value {
