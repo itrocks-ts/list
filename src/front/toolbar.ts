@@ -76,9 +76,8 @@ function watchToolbar(toolbar: HTMLElement): void
 		frame = undefined
 		const style     = getComputedStyle(toolbar)
 		const available = toolbar.getBoundingClientRect().width - inlineEdges(style)
-		const gaps      = (add.hidden ? 2 : 3) * pixels(style.getPropertyValue('--list-toolbar-gap'))
 		const required  = actionsWidth(actions) + filterWidth(filter) + contentWidth(count, getComputedStyle(count))
-			+ add.getBoundingClientRect().width + gaps
+			+ add.getBoundingClientRect().width
 
 		toolbar.toggleAttribute('data-filter-row', required > available)
 	}

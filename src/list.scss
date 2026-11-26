@@ -320,12 +320,9 @@ table.objects > thead > tr.properties > th {
 }
 
 main > article[data-action="list"] > header > .list-toolbar {
-	--list-toolbar-gap: 5px;
-
 	align-items: center;
 	border-bottom: 1px solid #ccc;
 	display: grid;
-	gap: var(--list-toolbar-gap);
 	grid-template-areas: "actions filter count add";
 	grid-template-columns: auto minmax(0, 1fr) auto max-content;
 
@@ -335,7 +332,6 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	&[data-filter-row] {
-		gap: 0;
 		grid-template-areas:
 			"actions count  count"
 			"filter  filter add";
@@ -348,12 +344,9 @@ main > article[data-action="list"] > header > .list-toolbar {
 			grid-template-columns: minmax(0, 1fr) auto;
 		}
 
-		> :is(.general.actions, .summary) {
+		> .general.actions {
 			align-self: stretch;
 			border-bottom: 1px solid #ccc;
-		}
-
-		> .general.actions {
 			flex-wrap: wrap;
 			overflow-x: auto;
 		}
@@ -363,9 +356,7 @@ main > article[data-action="list"] > header > .list-toolbar {
 		}
 
 		> .summary {
-			align-content: center;
-			justify-self: stretch;
-			text-align: end;
+			border-bottom: 1px solid #ccc;
 		}
 	}
 
@@ -389,7 +380,6 @@ main > article[data-action="list"] > header > .list-toolbar {
 
 	> .list-filter {
 		grid-area: filter;
-		padding-inline: 5px;
 	}
 
 	> .general.actions {
@@ -397,6 +387,7 @@ main > article[data-action="list"] > header > .list-toolbar {
 		flex-wrap: nowrap;
 		grid-area: actions;
 		min-width: 0;
+		padding-inline-end: 0;
 
 		> li {
 			flex: none;
@@ -405,10 +396,11 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	> .summary {
-		display: inline-block;
+		align-content: center;
+		align-self: stretch;
 		grid-area: count;
-		justify-self: end;
-		padding: 5px 10px;
+		padding-inline: 4px 10px;
+		text-align: end;
 		white-space: nowrap;
 	}
 }
@@ -417,7 +409,6 @@ main > article[data-action="list"] > header > .list-toolbar {
 	align-items: center;
 	display: flex;
 	flex: 1;
-	gap: .4em;
 	min-width: 0;
 
 	.list-filter-icon {
