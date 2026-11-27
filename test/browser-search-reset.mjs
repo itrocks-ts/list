@@ -12,12 +12,12 @@ const packages = resolve(fileURLToPath(new URL('../../', import.meta.url)))
 const template = await readFile(new URL('../src/list.html', import.meta.url), 'utf8')
 const article = template.split('<!--BEGIN-->')[1].split('<!--END-->')[0]
 	.replace(/<!--columns-->[\s\S]*?<!--end-->/, `<th data-property="title">Title
-		<input data-property-filter="title" name="search.title" value="{term}"></th>`)
+		<input data-property-filter="title" name="search.title" value="{term}"></th>
+		<th data-property="year">Year<input data-property-filter="year" name="search.year"></th>`)
 	.replace('{./feed.html}', `<tr><th class="select"><input name="id" type="checkbox" value="1"></th>
 		<td>Movie</td></tr>`)
 	.replace('app://(type.@route)/list', '/fixture/list')
-const filterSummary = `<span class="list-filter-icon" aria-hidden="true"></span>
-	<span class="list-filter-text">title:Movie</span>`
+const filterSummary = await readFile(new URL('../src/filter-summary.html', import.meta.url), 'utf8')
 const errors = []
 const server = createServer(async (request, response) => {
 	try {
@@ -34,7 +34,10 @@ const server = createServer(async (request, response) => {
 		response.setHeader('Content-Type', 'text/html; charset=utf-8')
 		if (url.searchParams.has('offset')) { response.end('<table><tbody></tbody></table>'); return }
 		const empty = url.searchParams.has('empty')
-		const list  = article.replace('<!--filterBar-->{{template}}<!--end-->', empty ? '' : filterSummary)
+		const summary = filterSummary.replace(/<!--criteria-->([\s\S]*)<!--end-->/, (_block, criteria) =>
+			empty ? '' : criteria.replace(/<!--items-->[\s\S]*?<!--end-->/, 'title:Movie')
+		)
+		const list = article.replace('<!--filterBar-->{{template}}<!--end-->', summary)
 			.replace('{term}', empty ? '' : 'Movie')
 		response.end(`<!doctype html><html><head>
 			<link rel="stylesheet" href="/@itrocks/list/list.css">
@@ -64,18 +67,30 @@ try {
 	await page.goto(`http://127.0.0.1:${server.address().port}/fixture/list`)
 	await page.waitForFunction(() => window.ready)
 	const trigger = page.locator('.search-submit')
-	const column  = page.locator('input[data-property-filter]')
+	const column  = page.locator('input[data-property-filter="title"]')
+	const focus   = page.getByRole('button', { name: 'Edit the filter' })
 	const reset   = page.getByRole('button', { name: 'Reset search filters' })
 	const search  = page.locator('.list-filter-text')
 	const submitted = () => page.evaluate(() => window.submissions.at(-1))
 	const count     = () => page.evaluate(() => window.submissions.length)
-	const onRight   = () => reset.evaluate((button, selector) =>
-		button.getBoundingClientRect().left >= document.querySelector(selector).getBoundingClientRect().right,
-	'.list-filter-text')
+	const resetGap  = () => reset.evaluate(button => {
+		const text = document.createRange()
+		text.selectNodeContents(button.previousElementSibling)
+		return button.getBoundingClientRect().left - text.getBoundingClientRect().right
+	})
 	assert.equal(await search.isVisible(), true)
+	assert.equal(await focus.getAttribute('title'), 'Edit the filter')
+	assert.equal(await trigger.getAttribute('title'), 'Filter')
+	assert.equal(await trigger.inputValue(), 'Filter')
 	assert.equal(await reset.textContent(), '×')
-	assert.equal(await onRight(), true)
+	assert.equal(await resetGap(), 0, 'The reset button sits immediately after the filter summary')
 	assert.equal(await page.locator('.search-menu').count(), 0)
+	await page.locator('input[data-property-filter="year"]').focus()
+	await focus.click()
+	assert.equal(await column.evaluate(input => document.activeElement === input), true)
+	await focus.press('Enter')
+	assert.equal(await column.evaluate(input => document.activeElement === input), true)
+	assert.equal(await count(), 0, 'Focusing the first column filter does not submit the list')
 	const appearance = () => trigger.evaluate(button => {
 		const style = getComputedStyle(button)
 		return {
@@ -130,7 +145,7 @@ try {
 	assert.equal((await submitted()).reset, 'reset')
 	assert.equal((await submitted()).focusListColumn, undefined)
 	await page.setViewportSize({ width: 360, height: 640 })
-	assert.equal(await onRight(), true)
+	assert.equal(await resetGap(), 0, 'The reset button stays beside the filter summary on narrow screens')
 	await page.evaluate(() => {
 		const article = document.querySelector('main > article')
 		article.replaceWith(article.cloneNode(true))
@@ -141,6 +156,8 @@ try {
 	await page.goto(`http://127.0.0.1:${server.address().port}/fixture/list?empty`)
 	await page.waitForFunction(() => window.ready)
 	assert.equal(await reset.isVisible(), false, 'There is no reset button when the filter summary is empty')
+	assert.equal(await focus.isVisible(), false, 'There is no toolbar filter button without an active filter')
+	assert.equal(await trigger.isVisible(), true, 'The column filter submit button remains visible')
 	assert.deepEqual(errors, [])
 	console.log('Search and reset: submitter, column focus, reset visibility, keyboard, touch and new list OK')
 }

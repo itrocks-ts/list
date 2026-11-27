@@ -31,7 +31,7 @@ HTML rendering provides columns, filters, ordered sorting and session preference
 business objects for API consumers. See the public methods below for their shared contracts.
 
 Column filter values use the same text highlight as the toolbar summary.
-After applying column filters, the toolbar shows a decorative filter icon and a read-only summary.
+When a filter is active, the toolbar shows the read-only summary beside a button that focuses the first column filter.
 The summary uses unique single-word column labels when available.
 Applying a search from a column filter returns focus to that field and selects its full value.
 When the toolbar runs out of space, the filter and add-column button move to a second row.

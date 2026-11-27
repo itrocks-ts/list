@@ -406,6 +406,10 @@ main > article[data-action="list"] > header > .list-toolbar {
 }
 
 .list-filter {
+	--list-filter-criterion-color: #888;
+	--list-filter-value-background: #{$filter-value-background};
+	--list-filter-value-color: #{$filter-value-color};
+
 	align-items: center;
 	display: flex;
 	flex: 1;
@@ -415,21 +419,19 @@ main > article[data-action="list"] > header > .list-toolbar {
 		background: url('filter.svg') center / 18px no-repeat;
 	}
 
-	span.list-filter-icon {
+	.list-filter-icon, > .list-filter-reset {
+		box-sizing: border-box;
 		flex: none;
-		height: 18px;
-		width: 18px;
+		height: 36px;
+		padding: 0;
+		width: 32px;
 	}
 
 	button.list-filter-icon, > .list-filter-reset {
 		border: 0;
 		border-radius: 2px;
 		cursor: pointer;
-		flex: none;
-		height: 36px;
-		padding: 0;
 		touch-action: manipulation;
-		width: 32px;
 
 		&:hover {
 			background-color: $filter-control-hover;
@@ -449,7 +451,6 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	.list-filter-text {
-		flex: 1;
 		min-width: 0;
 		overflow-x: auto;
 		white-space: pre;
@@ -460,11 +461,11 @@ main > article[data-action="list"] > header > .list-toolbar {
 	}
 
 	.list-filter-criterion {
-		text-decoration: underline dotted #888;
+		text-decoration: underline dotted var(--list-filter-criterion-color);
 	}
 
 	.list-filter-value {
-		background: $filter-value-background;
-		color: $filter-value-color;
+		background: var(--list-filter-value-background);
+		color: var(--list-filter-value-color);
 	}
 }

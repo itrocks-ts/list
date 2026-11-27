@@ -46,6 +46,11 @@ build<HTMLFormElement, 'call'>({
 	selector: 'article[data-action="list"] > form'
 })
 
+build<HTMLButtonElement, 'click'>('.list-filter > button[data-focus-column-filter]', 'click', function () {
+	this.closest('article[data-action="list"]')
+		?.querySelector<HTMLInputElement>(':scope > form input[data-property-filter]:enabled')?.focus()
+})
+
 build<HTMLButtonElement, 'click'>('.list-filter > .list-filter-reset', 'click', function () {
 	const form = this.closest('article[data-action="list"]')?.querySelector<HTMLFormElement>(':scope > form')
 	if (!form) return
