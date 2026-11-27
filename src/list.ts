@@ -13,6 +13,7 @@ import { ListView }               from './access'
 import { listAccess }             from './access'
 import { listSelection }          from './access'
 import { listView }               from './access'
+import { ColumnWidths }           from './column-widths'
 import { Columns }                from './columns'
 import { projectColumns }         from './columns'
 import { Feed }                   from './feed'
@@ -37,10 +38,16 @@ export type { ListAccess, ListDependencies, ListView } from './access'
 export class List<T extends object = object> extends Action<T>
 {
 
-	columns = new Columns
-	feed    = new Feed
-	filter  = new Filter(this.columns)
-	sort    = new Sort(this.columns)
+	columns      = new Columns
+	columnWidths = new ColumnWidths(this.columns)
+	feed         = new Feed
+	filter       = new Filter(this.columns)
+	sort         = new Sort(this.columns)
+
+	protected canResizeColumns(_request: Request<T>): boolean
+	{
+		return true
+	}
 
 	protected filterBar(request: Request<T>): ListView
 	{
@@ -61,6 +68,7 @@ export class List<T extends object = object> extends Action<T>
 
 		const prepared = await prepareListSession(request)
 		if (prepared) return prepared
+		this.columnWidths.unserialize(undefined)
 		load(this, request.request, type)
 
 		columns.getParams(request.request, type)
@@ -69,8 +77,14 @@ export class List<T extends object = object> extends Action<T>
 			await access.authorise(column.name)
 			for (const field of column.fields ?? []) await access.authorise(`${column.name}.${field}`)
 		}
+		const canResize = this.canResizeColumns(request)
+		const resizing  = ('resizeColumn' in request.request.data) || ('columnWidth' in request.request.data)
+		if (resizing && (request.request.method !== 'POST')) return this.htmlResponse('', 405)
+		if (resizing && !canResize) return this.htmlResponse('', 403)
+		if (!this.columnWidths.getParams(request.request)) return this.htmlResponse('', 400)
 		const batch = typeof request.request.data.loadColumns === 'string'
-		if (request.request.data.columns !== undefined && typeof request.request.data.column !== 'string' && !batch) {
+		if (resizing || (request.request.data.columns !== undefined && typeof request.request.data.column !== 'string'
+			&& !batch)) {
 			save(this, request.request, type)
 			return this.htmlResponse('', 204)
 		}
@@ -167,7 +181,7 @@ export class List<T extends object = object> extends Action<T>
 		const focusColumn = [...columns].find(column => column.field === focus)?.field ?? ''
 		return this.htmlTemplateResponse(
 			{
-				columns, count, filterBar: this.filterBar(request), focusColumn, generalActions, objects,
+				canResize, columns, count, filterBar: this.filterBar(request), focusColumn, generalActions, objects,
 				root: access.root, search: filter.search,
 				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type,
 				selection: selectionActions.length ? await selection?.view(request, activeSearch, count) : undefined,

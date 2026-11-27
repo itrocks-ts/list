@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url)
 const { City, Country, Invoice } = require('./fixtures/graph.cjs')
 const { List, listDependsOn } = require('@itrocks/list')
 const { ListColumn, representationFields, listRepresentationDependsOn } = require('@itrocks/list/projection')
+const { listSessionDependsOn, listState, replaceListState } = require('@itrocks/list/session-state')
 const { Columns, projectColumns } = require('../cjs/columns.js')
 const { Filter } = require('../cjs/filter.js')
 const { Sort } = require('../cjs/sort.js')
@@ -25,6 +26,49 @@ const original = storage.dataSource
 ListProperties('number')(Invoice)
 after(() => { storage.dataSource = original })
 const request = (data = {}, session = {}) => ({ type: Invoice, request: { data, headers: {}, session } })
+
+test('column widths follow their paths and are omitted when automatic or removed', async () => {
+	const session = {}
+	const list = new List()
+	list.htmlResponse = (body, status) => ({ body, status })
+	const run = (data, method = 'POST') => {
+		const current = request(data, session)
+		current.request.method = method
+		return list.html(current)
+	}
+	const state = () => listState({ session }, Invoice)
+	const savedView = { columns: ['number', 'city.country.name'], sort: [['number', true]] }
+	replaceListState({ session }, Invoice, savedView)
+	let changes = 0
+	listSessionDependsOn({ changed: () => { changes ++ } })
+	try {
+		assert.deepEqual(state(), { ...savedView, filter: undefined })
+		const resize = { resizeColumn: 'city.country.name', columnWidth: '180' }
+		assert.equal((await run(resize, 'GET')).status, 405)
+		assert.equal((await run(resize)).status, 204)
+		assert.deepEqual(state().columnWidths, { 'city.country.name': 180 })
+		assert.deepEqual(state().sort, savedView.sort)
+		assert.equal(changes, 1)
+		await run(resize)
+		assert.equal(changes, 1)
+		assert.equal((await run({ ...resize, columnWidth: '20px' })).status, 400)
+		assert.equal((await run({ ...resize, resizeColumn: 'city' })).status, 400)
+		list.canResizeColumns = () => false
+		assert.equal((await run({ ...resize, columnWidth: '240' })).status, 403)
+		list.canResizeColumns = () => true
+		await run({ columns: 'city.country.name,number' })
+		assert.equal(list.columns.properties[0].width, 180)
+		await run({ ...resize, columnWidth: 'auto' })
+		assert.equal(state().columnWidths, undefined)
+		await run(resize)
+		await run({ columns: 'number' })
+		assert.equal(state().columnWidths, undefined)
+		replaceListState({ session }, Invoice, savedView)
+		await run({ columns: savedView.columns.join(',') })
+		assert.ok(list.columns.properties.every(column => column.width === undefined))
+	}
+	finally { listSessionDependsOn({ changed: () => {} }) }
+})
 
 test('column labels translate every property in a nested path', async () => {
 	const directory = await mkdtemp(join(tmpdir(), 'list-column-labels-'))

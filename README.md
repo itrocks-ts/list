@@ -363,6 +363,12 @@ The same projection is used when reloading the list or adding an individual comp
 rendered values, mandatory row scope, partial selection, removal and session restoration. It creates and cleans up
 its own temporary database and server using the existing selector integration recipe.
 
+## Column widths
+
+Drag the edge of a column heading to set its width. Double-click the same edge to return to automatic sizing.
+List actions can override `canResizeColumns(request)` to disable the gesture while displaying saved widths.
+Only explicit pixel widths are stored in `columnWidths`, by property path. Removing a column clears its width.
+
 ## Session state integration
 
 `@itrocks/list/session-state` exposes the settings independently of rendering:
@@ -376,8 +382,8 @@ replaceListState(request.request, request.type, settings)
 replaceListState(request.request, request.type)
 ```
 
-`listState(request: ServerRequest, type: Type): ListState` returns a deep copy of columns, filters
-and ordered sort tuples.
+`listState(request: ServerRequest, type: Type): ListState` returns a deep copy of columns, explicit column widths,
+filters and ordered sort tuples.
 `replaceListState(request, type, state?)` replaces the complete session entry;
 omitting state restores reflected defaults on the next render.
 Neither function queries business rows or changes mandatory scopes.

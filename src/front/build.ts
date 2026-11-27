@@ -2,6 +2,8 @@ import { build }                        from '@itrocks/build/build.js'
 import { TableColumnAdd }               from '@itrocks/table/column-add.js'
 import { TableColumnReorderFreeze }     from '@itrocks/table/column-reorder-freeze.js'
 import { TableColumnReorder }           from '@itrocks/table/column-reorder.js'
+import type { ColumnWidth }             from '@itrocks/table/column-resize.js'
+import { TableColumnResize }            from '@itrocks/table/column-resize.js'
 import { TableFeed }                    from '@itrocks/table/feed.js'
 import { TableFreeze }                  from '@itrocks/table/freeze.js'
 import { TableFreezeInheritBackground } from '@itrocks/table/freeze/inherit-background.js'
@@ -16,16 +18,27 @@ import './toolbar.js'
 build<HTMLTableElement>(
 	'article[data-action="list"] > form > table.objects',
 	table => {
-		let persistedColumns = [...table.querySelectorAll<HTMLElement>('thead th[data-property]')]
-			.map(header => header.dataset.property).join(',')
+		const headers         = [...table.querySelectorAll<HTMLTableCellElement>('thead th[data-property]')]
+		const persistedWidths = new Map<string, number>()
+		const pendingWidths   = new Map<string, Promise<Response>>()
+		let persistedColumns  = headers.map(header => header.dataset.property).join(',')
+		for (const header of headers) {
+			if (header.dataset.columnWidth) {
+				persistedWidths.set(header.dataset.property!, Number(header.dataset.columnWidth))
+			}
+		}
 		let saving = Promise.resolve()
-		const request = (query: URLSearchParams, signal?: AbortSignal): Promise<Response> => {
-			const form = table.closest('form')!
-			const result = saving.then(() => fetch(`${form.action}?${query}`, { keepalive: true, signal }))
+		const request = (query: URLSearchParams, signal?: AbortSignal, method = 'GET'): Promise<Response> => {
+			const form   = table.closest('form')!
+			const result = saving.then(() => fetch(`${form.action}?${query}`, { keepalive: true, method, signal }))
 			saving = result.then(() => {}, () => {})
 			void result.then(response => {
 				if (response.ok && query.has('columns') && (query.get('columns') !== persistedColumns)) {
 					persistedColumns = query.get('columns')!
+					const paths = new Set(persistedColumns.split(','))
+					for (const path of persistedWidths.keys()) {
+						if (!paths.has(path)) persistedWidths.delete(path)
+					}
 					table.dispatchEvent(new CustomEvent('itrocks:list-change', { bubbles: true }))
 				}
 			}, () => {})
@@ -42,6 +55,40 @@ build<HTMLTableElement>(
 				if (!response.ok) throw new Error('Unable to save columns')
 			})
 		}
+		const saveWidth = (header: HTMLTableCellElement, width: ColumnWidth) => {
+			const path   = header.dataset.property!
+			const query  = new URLSearchParams({ resizeColumn: path, columnWidth: String(width) })
+			const result = request(query, undefined, 'POST')
+			pendingWidths.set(path, result)
+			void result.then(response => {
+				if (response.status !== 204) throw new Error('Unable to save column width')
+				const previous = persistedWidths.get(path) ?? 'auto'
+				if (width === 'auto') persistedWidths.delete(path)
+				else persistedWidths.set(path, width)
+				if (width !== previous) {
+					table.dispatchEvent(new CustomEvent('itrocks:list-change', { bubbles: true }))
+				}
+			}).catch(error => {
+				if (pendingWidths.get(path) === result) {
+					resize.setWidth(header, persistedWidths.get(path) ?? 'auto')
+				}
+				console.error(error)
+			}).finally(() => {
+				if (pendingWidths.get(path) === result) pendingWidths.delete(path)
+			})
+		}
+		const resize = new TableColumnResize({
+			identify: header => header.dataset.property,
+			isInResizeZone: (header, y) => {
+				const filter = header.querySelector(':scope > input[data-property-filter]')
+				if (!filter) return true
+				const bottom     = filter.getBoundingClientRect().top
+				const lineHeight = parseFloat(getComputedStyle(header).lineHeight)
+				return (y < bottom) && (!Number.isFinite(lineHeight) || (y >= bottom - lineHeight))
+			},
+			isResizable: header => table.hasAttribute('data-column-resize') && (header.dataset.property !== undefined),
+			onChange:    saveWidth
+		})
 		const tableColumnReorder = new TableColumnReorder({
 			isReorderable: header => header.dataset.property !== undefined,
 			onRemove:      () => saveColumns(),
@@ -57,8 +104,8 @@ build<HTMLTableElement>(
 		const addition = new TableColumnAdd({ identify: header => header.dataset.property })
 		const instance = tableByElement(table, {
 			plugins: [
-				tableColumnReorder, addition, TableColumnReorderFreeze, TableFeed, TableFreeze, TableFreezeInheritBackground,
-				TableFreezeInheritBorder, tableLink
+				tableColumnReorder, resize, addition, TableColumnReorderFreeze, TableFeed, TableFreeze,
+				TableFreezeInheritBackground, TableFreezeInheritBorder, tableLink
 			]
 		})
 		table.dispatchEvent(new CustomEvent('itrocks:list-ready', {

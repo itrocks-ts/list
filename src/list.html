@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 	<link href="../../action-bar/action.css" rel="stylesheet">
+	<link href="../../table/column-resize.css" rel="stylesheet">
 	<link href="../../ux-core/css/app.css" rel="stylesheet">
 	<link href="../../ux-core/css/article.css" rel="stylesheet">
 	<link href="../list.css" rel="stylesheet">
@@ -37,7 +38,7 @@
 		<form action="app://(type.@route)/list" autocomplete="off" data-focus-column="{focusColumn}"
 			method="post" target="main">
 			<!--filterBar--><!--formFields-->{{template}}<!--end--><!--end-->
-			<table class="objects" data-link="{type.@route}">
+			<table class="objects" data-column-resize="{?canResize}" data-link="{type.@route}">
 				<thead>
 					<tr class="properties">
 						<th class="select" data-freeze><!--selection-->{{template}}<!--end-->
@@ -45,7 +46,7 @@
 						</th>
 						<!--columns-->
 						<th data-property="{name}" data-reverse="{?reverse}" data-sort="{?sort}"
-							data-sortable="{sortable}">{label}
+							data-sortable="{sortable}" data-column-width="{?width}">{label}
 							<input aria-label="Filter {label}" data-property-filter="{name}" name="search.{field}" value="{escapedSearch}">
 						</th>
 						<!--end-->

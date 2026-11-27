@@ -68,6 +68,7 @@ export class ListColumn
 	reverse = false
 	search = ''
 	sort?: number
+	width?: number
 
 	constructor(readonly root: Type, readonly name: string)
 	{
