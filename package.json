@@ -33,6 +33,7 @@
 		"@itrocks/class-file": "latest",
 		"@itrocks/fastify-file-session-store": "latest",
 		"@types/node": "^24.10",
+		"pdf-lib": "^1.17.1",
 		"sass": "^1.95",
 		"typescript": "^7.0"
 	},
@@ -102,5 +103,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.28.2"
+	"version": "0.28.3"
 }
