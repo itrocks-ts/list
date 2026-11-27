@@ -1,10 +1,12 @@
 
-export type SearchComparison = ':' | '=' | '!=' | '<' | '<=' | '>' | '>='
+export type SearchComparison = ':' | '=' | '!' | '!=' | '<' | '<=' | '>' | '>='
 
 export type SearchExpression = { comparison?: SearchComparison; value: string } | {
 	operator: 'AND' | 'OR'
 	operands: SearchExpression[]
 }
+
+export const columnComparison = /^(>=|<=|<>|!=|[><=!≠])(.*)$/s
 
 export function searchExpression(input: string): SearchExpression
 {

@@ -18,12 +18,12 @@ import { or }                  from '@itrocks/sql-functions'
 import { Option }              from '@itrocks/storage'
 import { SearchType }          from '@itrocks/storage'
 import { trReverse }           from '@itrocks/translate'
+import { SearchComparison }    from './front/search-expression'
+import { SearchExpression }    from './front/search-expression'
+import { searchExpression }    from './front/search-expression'
 import { Columns }             from './columns'
 import { dateSearch }          from './date-search'
 import { Parameter }           from './parameter'
-import { SearchComparison }    from './search-expression'
-import { SearchExpression }    from './search-expression'
-import { searchExpression }    from './search-expression'
 
 type Search = { [property: string]: string }
 

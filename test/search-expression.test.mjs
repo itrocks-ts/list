@@ -8,7 +8,7 @@ const { Select } = require('@itrocks/sql-build')
 const { AND, OR, LogicalFunction, and, between, equal, greaterOrEqual, less, like, or }
 	= require('@itrocks/sql-functions')
 const { Filter } = require('../cjs/filter.js')
-const { searchExpression } = require('../cjs/search-expression.js')
+const { searchExpression } = require('@itrocks/list/search-expression.js')
 const { Invoice } = require('./fixtures/graph.cjs')
 
 class Entry {}

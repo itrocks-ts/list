@@ -50,6 +50,11 @@
 		"./projection": "./cjs/projection.js",
 		"./property-select.js": "./property-select.js",
 		"./search": "./cjs/search.js",
+		"./search-expression.js": {
+			"types": "./cjs/front/search-expression.d.ts",
+			"require": "./cjs/front/search-expression.js",
+			"default": "./search-expression.js"
+		},
 		"./selector-state": "./cjs/selector-state.js",
 		"./selector-state.js": "./selector-state.js",
 		"./session-state": "./cjs/session-state.js"
