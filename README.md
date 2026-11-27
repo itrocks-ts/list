@@ -111,20 +111,23 @@ HTML list filters interpret the first hyphen as an interval separator. Spaces ar
 - `2000 - 2010` uses inclusive `between(2000, 2010)`.
 - `-2010` means less than or equal to 2010.
 - `2000-` means greater than or equal to 2000.
-- A hyphen with neither bound applies no criterion.
+- A lone hyphen matches the exact text `-` in a text column.
 
-Leading `>`, `>=`, `<`, `<=`, `<>`, `!=` and `!` apply the corresponding comparison.
-The prefixes `<>`, `!=` and `!` mean not equal; the equals sign after `!` is optional.
-With `*` or `?` in their operand, these three prefixes request `NOT LIKE` instead, using the same wildcard conversion.
-A leading `=` requests exact equality, including an empty string. Spaces around explicit comparison operands are
-ignored.
+Leading `>`, `>=`, `<` and `<=` apply the corresponding comparison. A leading `=` compares the whole value.
+On text, `!=`, `<>` and `≠` compare the whole value for inequality. Any wildcard characters in their operand are
+literal. For example, `<>%Alien%` compares against the literal value `%Alien%`.
+The `!` prefix excludes a text prefix or an explicit pattern. `!Alien` produces `NOT LIKE 'Alien%'` and `!*Alien*`
+produces `NOT LIKE '%Alien%'`. A bare `=` finds the empty string, while `!` and `!=` find text different from the empty
+string. Spaces around explicit comparison operands are ignored.
 Explicit operators take precedence over interval syntax, so `>=-10` compares with negative ten and `=A-B` matches `A-B`.
 
-Without an explicit comparison operator, `*` and `?` request `LIKE` for any property type, replacing all `*` with `%`
-and all `?` with `_`. The pattern is used as supplied without an extra trailing wildcard. Wildcards take precedence
-over interval syntax, so `2000-20??` becomes the pattern `2000-20__`.
+Without a comparison operator, any of `*`, `%`, `?` and `_` selects `LIKE`. Date patterns follow the date rules below.
+`*` and `%` stand for zero or more characters. `?` and `_` stand for a single character.
+The explicit pattern supplies its own wildcards and takes precedence over interval syntax.
+For example, `2000-20??` and `2000-20__` both produce the pattern `2000-20__`.
 
-`empty` is an alias for `!?*`; `!empty`, `!=empty` and `<>empty` mean `?*` (a non-empty value).
+On text, `empty` finds the empty string and `!empty` finds non-empty values. On a numeric field or a single object
+reference, they use `IS NULL` and `IS NOT NULL` respectively.
 The alias accepts the current language's translation through `trReverse()`, for example `vide` and `!vide` in French.
 Alias matching ignores case and surrounding spaces. Use `=empty` or `=vide` to match the literal word.
 For dates, these aliases use the existing empty (`!?`) and non-empty (`?`) date criteria.
@@ -193,13 +196,14 @@ Calendar periods include their full final day. Explicit comparisons use the corr
 period: `>2020` starts after 2020, and `<=2020` includes all of 2020. Not-equal comparisons exclude the whole period
 through `NOT BETWEEN`.
 
-Date digits may contain `%`, `?` or `*`. Patterns are reordered into SQL year-month-day order, `?` becomes `_` and `*`
-becomes `%`. For example `??/03/2020` becomes `2020-03-__%` in day/month order; the final `%` also permits stored times.
+Date digits may contain `*`, `%`, `?` or `_`. Patterns are reordered into SQL year-month-day order, `?` becomes `_` and
+`*` becomes `%`. For example, `??/03/2020` and `__/03/2020` become `2020-03-__%` in day/month order.
+The final `%` also permits stored times.
 Each wildcard counts as one digit while identifying the input format and completing date fields. For example,
 `??` selects month patterns in the current year, `????` selects year patterns, and a two-character year such as `**`
 is prefixed with the current century before replacing the wildcards. One-character month and day fields are zero-padded.
-The prefixes `!`, `!=` and `<>` use `NOT LIKE` for these patterns.
-On a date property, `?` alone excludes the zero date; `!?`, `!=?` and `<>?` find zero dates.
+On dates, the prefixes `!`, `!=`, `<>` and `≠` use `NOT LIKE` for these patterns.
+On a date property, a lone `?` or `_` finds filled-in dates. With any of those prefixes, it finds empty dates.
 Empty dates are stored as `0000-00-00`, never SQL `NULL`.
 Invalid dates match no rows, without calendar rollover.
 Original input text is retained in session and restored for subsequent feed requests.

@@ -5,7 +5,7 @@ import { test }          from 'node:test'
 
 const require = createRequire(import.meta.url)
 const { File } = require('@itrocks/class-file')
-const { AND, OR, and, like, notLike, or } = require('@itrocks/sql-functions')
+const { and, isNotNull, isNull, like, notLike, or } = require('@itrocks/sql-functions')
 const { tr, trLoad, trWithLanguage } = require('@itrocks/translate')
 const { dateSearch } = require('../cjs/date-search.js')
 const { Filter } = require('../cjs/filter.js')
@@ -27,8 +27,8 @@ test('aliases combine with other criteria and expand through object representati
 	trWithLanguage('fr-FR', () => {
 		assert.deepEqual(filtered('text', 'vide | (!vide & A*)').search.text,
 			or(notLike('_%'), and(like('_%'), like('A%'))))
-		const search = filtered('city', 'vide', Invoice).search
-		assert.deepEqual(search[AND][0][OR][0]['city.name'], notLike('_%'))
+		assert.deepEqual(filtered('city', 'vide', Invoice).search.city, isNull())
+		assert.deepEqual(filtered('city', '!vide', Invoice).search.city, isNotNull())
 		assert.deepEqual(filtered('city.country.name', '!vide', Invoice).search['city.country.name'], like('_%'))
 	})
 })
@@ -38,12 +38,13 @@ test('empty aliases and their negations use the existing wildcard and date crite
 		const word = tr('empty')
 		assert.equal(word, language === 'fr-FR' ? 'vide' : 'empty')
 		for (const alias of new Set(['empty', word, word.toUpperCase(), ` ${word} `])) {
-			for (const prefix of ['', '!', '!=', '<>']) {
+			for (const prefix of ['', '!']) {
 				const input = ` ${prefix} ${alias} `
 				for (const property of ['date', 'text', 'year']) {
 					const { filter, search } = filtered(property, input)
 					const expected = property === 'date'
 						? dateSearch('?', prefix ? undefined : '!')
+						: property === 'year' ? (prefix ? isNotNull() : isNull())
 						: (prefix ? like('_%') : notLike('_%'))
 					assert.deepEqual(search[property], expected, `${language}: ${property}: ${input}`)
 					assert.equal(filter.serialize()[property], input)
@@ -52,6 +53,10 @@ test('empty aliases and their negations use the existing wildcard and date crite
 					assert.deepEqual(restored.searchObject(Entry)[property], expected)
 				}
 			}
+		}
+		for (const prefix of ['!=', '<>', '≠']) {
+			assert.deepEqual(filtered('date', ' ' + prefix + ' ' + word).search.date, dateSearch('?'))
+			assert.deepEqual(filtered('text', prefix + word).search.text.build(), { sql: ' <> ?', values: [word] })
 		}
 	})
 })

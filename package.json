@@ -15,6 +15,7 @@
 		"@itrocks/decorator": "latest",
 		"@itrocks/list-properties": "latest",
 		"@itrocks/property-select": "latest",
+		"@itrocks/property-type": "latest",
 		"@itrocks/property-view": "latest",
 		"@itrocks/reflect": "latest",
 		"@itrocks/reflect-path": "latest",
@@ -108,5 +109,5 @@
 		"build:front": "tsc -p src/front/tsconfig.json",
 		"test": "npm run build:cjs && node --test \"test/**/*.test.mjs\""
 	},
-	"version": "0.28.3"
+	"version": "0.29.0"
 }

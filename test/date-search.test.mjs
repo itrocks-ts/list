@@ -108,7 +108,9 @@ test('open ranges complete their bound to the beginning or end of its date perio
 test('wildcard dates are reordered from display format into SQL date patterns', () => {
 	for (const [format, value, expected] of [
 		['dd/MM/yyyy', '??/03/2020', '2020-03-__%'],
+		['dd/MM/yyyy', '__/03/2020', '2020-03-__%'],
 		['MM/dd/yyyy', '03/??/2020', '2020-03-__%'],
+		['MM/dd/yyyy', '03__2020', '2020-03-__%'],
 		['dd/MM/yyyy', '%/3/202?', '202_-03-0%%'],
 		['dd/MM/yyyy', '202?-3-?', '202_-03-0_%'],
 		['dd/MM/yyyy', '20??', '20__-%'],
@@ -134,7 +136,7 @@ test('wildcard dates are reordered from display format into SQL date patterns', 
 })
 
 test('a single question mark finds present dates and negation finds missing dates', () => {
-	for (const value of ['?', ' ? ']) {
+	for (const value of ['?', ' ? ', '_', ' _ ']) {
 		assert.deepEqual(dateSearch(value, '=', now).build(), { sql: ' <> ?', values: ['0000-00-00'] })
 		for (const operator of ['!', '!=', '<>'])
 			assert.deepEqual(dateSearch(value, operator, now).build(), { sql: ' = ?', values: ['0000-00-00'] })

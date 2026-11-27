@@ -38,18 +38,18 @@ test('AND binds more tightly than OR, with all separator aliases', () => {
 	for (const disjunction of [',', '|']) for (const conjunction of ['&', '+']) {
 		const input = `<1980 ${disjunction} >=2000 ${conjunction} <2010`
 		const { search } = filtered('year', input)
-		assert.deepEqual(search.year, or(less('1980'), and(greaterOrEqual('2000'), less('2010'))))
+		assert.deepEqual(search.year, or(less(1980), and(greaterOrEqual(2000), less(2010))))
 		const query = new Select(table, ['year'], search).build()
 		assert.match(query.sql, /WHERE `t0`\.`year` < \? OR \(`t0`\.`year` >= \? AND `t0`\.`year` < \?\)/)
-		assert.deepEqual(query.values, ['1980', '2000', '2010'])
+		assert.deepEqual(query.values, [1980, 2000, 2010])
 	}
 })
 
 test('parentheses override precedence and permit nested expressions', () => {
 	const { search } = filtered('year', '(<1980 | >=2000) & (2000-2005 | (=2010 + <2011))')
-	assert.deepEqual(search.year, and(or(less('1980'), greaterOrEqual('2000')),
-		or(between('2000', '2005'), and(equal('2010'), less('2011')))))
-	assert.deepEqual(filtered('year', '(((>=2000)))').search.year, greaterOrEqual('2000'))
+	assert.deepEqual(search.year, and(or(less(1980), greaterOrEqual(2000)),
+		or(between(2000, 2005), and(equal(2010), less(2011)))))
+	assert.deepEqual(filtered('year', '(((>=2000)))').search.year, greaterOrEqual(2000))
 })
 
 test('date leaves retain period and range parsing within logical expressions', () => {
@@ -102,7 +102,7 @@ test('invalid expressions never turn into an unrestricted or partially applied s
 		assert.match(new Select(table, ['text'], search).build().sql, /WHERE 1 = 0/)
 		assert.equal(filter.serialize().text, input)
 	}
-	assert.deepEqual(filtered('year', '1 | -').search.year, or('1', or()))
+	assert.deepEqual(filtered('year', '1 | -').search.year, or(1, or()))
 })
 
 test('session restoration rebuilds the same expression, including nested field parameters and an encoded plus', () => {
@@ -114,5 +114,5 @@ test('session restoration rebuilds the same expression, including nested field p
 	assert.deepEqual(second.searchObject(Entry), first.search)
 	const decoded = Object.fromEntries(new URLSearchParams('search.year=%3E%3D1980%2B%3C2000'))
 	second.getParams({ data: decoded })
-	assert.deepEqual(second.searchObject(Entry).year, and(greaterOrEqual('1980'), less('2000')))
+	assert.deepEqual(second.searchObject(Entry).year, and(greaterOrEqual(1980), less(2000)))
 })

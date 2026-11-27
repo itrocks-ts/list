@@ -95,7 +95,7 @@ export function dateSearch(
 	value: string, operator = '=', now = new Date(), format = tr('dd/MM/yyyy', { ucFirst: false })
 )
 {
-	value = value.trim()
+	value = value.trim().replaceAll('_', '?')
 	if (value === '?') {
 		return ['!', '!=', '<>'].includes(operator)
 			? equal('0000-00-00')
