@@ -1,16 +1,17 @@
-import { Type }             from '@itrocks/class-type'
-import { ListReflectClass } from '@itrocks/list-properties'
-import { Request }          from '@itrocks/request-response'
-import { Option }           from '@itrocks/storage'
-import { dataSource }       from '@itrocks/storage'
-import { Identifiers }      from '@itrocks/storage'
-import { ProjectionCell }   from '@itrocks/storage'
-import { ProjectionResult } from '@itrocks/storage'
-import { SearchType }       from '@itrocks/storage'
-import { Selection }        from '@itrocks/storage'
-import { Sort }             from '@itrocks/storage'
-import { Parameter }        from './parameter'
-import { ListColumn }       from './projection'
+import { Type }                  from '@itrocks/class-type'
+import { ListReflectClass }      from '@itrocks/list-properties'
+import { Request }               from '@itrocks/request-response'
+import { Option }                from '@itrocks/storage'
+import { dataSource }            from '@itrocks/storage'
+import { Identifiers }           from '@itrocks/storage'
+import { ProjectionCell }        from '@itrocks/storage'
+import { ProjectionResult }      from '@itrocks/storage'
+import { SearchType }            from '@itrocks/storage'
+import { Selection }             from '@itrocks/storage'
+import { Sort }                  from '@itrocks/storage'
+import type { ListColumnOutput } from './access'
+import { Parameter }             from './parameter'
+import { ListColumn }            from './projection'
 
 export class Columns<T extends object> extends Parameter implements Iterable<ListColumn>
 {
@@ -59,7 +60,7 @@ export class Columns<T extends object> extends Parameter implements Iterable<Lis
 		return this.properties.map(callback)
 	}
 
-	async projected(result: ProjectionResult)
+	async projected(result: ProjectionResult, output?: ListColumnOutput)
 	{
 		if (
 			result.columns.some((column, index) => column.path !== this.properties[index]?.name)
@@ -70,7 +71,9 @@ export class Columns<T extends object> extends Parameter implements Iterable<Lis
 		return Promise.all(result.rows.map(async row => ({
 			id: row.rootId,
 			properties: await Promise.all(
-				row.cells.map(async (cell, index) => ({ outputOptionalContainer: await this.properties[index].output(cell) }))
+				row.cells.map(async (cell, index) => ({
+					outputOptionalContainer: await this.properties[index].output(cell, output)
+				}))
 			)
 		})))
 	}

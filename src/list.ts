@@ -11,6 +11,7 @@ import { SearchType }             from '@itrocks/storage'
 import { SelectionError }         from '@itrocks/storage'
 import { ListView }               from './access'
 import { listAccess }             from './access'
+import { listColumnsView }        from './access'
 import { listSelection }          from './access'
 import { listView }               from './access'
 import { ColumnWidths }           from './column-widths'
@@ -31,7 +32,7 @@ import { prepareListSession }     from './session-state'
 import { Sort }                   from './sort'
 
 export { listAccess, listDependsOn } from './access'
-export type { ListAccess, ListDependencies, ListView } from './access'
+export type { ListAccess, ListColumnOutput, ListColumnsView, ListDependencies, ListView } from './access'
 
 @Need('Store', 'new')
 @Route('/list')
@@ -98,9 +99,11 @@ export class List<T extends object = object> extends Action<T>
 		if (captureListSearch(request, activeSearch)) return this.htmlResponse('', 204)
 		if (!batch) save(this, request.request, type)
 
-		const options = feed.readOptions(filter.readOptions(sort.readOptions()))
-		const search  = activeSearch.criteria
-		for (const path of Object.keys(sort.sorted ?? {})) await access.authorise(path)
+		const search = activeSearch.criteria
+		for (const path of Object.keys(sort.sorted ?? {})) {
+			await access.authorise(path)
+		}
+		const columnsView = listColumnsView(type, Object.entries(sort.sorted ?? {})[0])
 		if (batch) {
 			try {
 				const names = (request.request.data.loadColumns as string).split(',').filter(Boolean)
@@ -118,7 +121,7 @@ export class List<T extends object = object> extends Action<T>
 				const response = await Promise.all(requested.map(async (column, index) => ({
 					label: column.label, path: column.name, sortable: column.sortable,
 					rows: await Promise.all(result!.rows.map(async row => ({
-						id: row.rootId, html: await column.output(row.cells[index])
+						id: row.rootId, html: await column.output(row.cells[index], columnsView?.output)
 					})))
 				})))
 				save(this, request.request, type)
@@ -144,7 +147,7 @@ export class List<T extends object = object> extends Action<T>
 				return this.jsonResponse({
 					label: column.label, path, sortable: column.sortable,
 					rows: await Promise.all(result.rows.map(async row => ({
-						id: row.rootId, html: await column.output(row.cells[0])
+						id: row.rootId, html: await column.output(row.cells[0], columnsView?.output)
 					})))
 				})
 			}
@@ -155,7 +158,11 @@ export class List<T extends object = object> extends Action<T>
 				return this.jsonResponse({ error: message }, 400)
 			}
 		}
-		const objects = await columns.projected(await projectColumns(type, [...columns], search, options))
+		const sortOptions = columnsView?.sort ? [columnsView.sort] : sort.readOptions()
+		const options     = feed.readOptions(filter.readOptions(sortOptions))
+		const objects     = await columns.projected(
+			await projectColumns(type, [...columns], search, options), columnsView?.output
+		)
 
 		if (feed.offset) {
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)
@@ -181,7 +188,8 @@ export class List<T extends object = object> extends Action<T>
 		const focusColumn = [...columns].find(column => column.field === focus)?.field ?? ''
 		return this.htmlTemplateResponse(
 			{
-				canResize, columns, count, filterBar: this.filterBar(request), focusColumn, generalActions, objects,
+				canResize, columns, columnsView: columnsView?.view, count, filterBar: this.filterBar(request), focusColumn,
+				generalActions, objects,
 				root: access.root, search: filter.search,
 				selectionActions, selectorBootstrap, selectorKey: selectorStateKey(request), type,
 				selection: selectionActions.length ? await selection?.view(request, activeSearch, count) : undefined,

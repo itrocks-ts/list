@@ -40,3 +40,11 @@ The host owns the supplied template and its data; the list does not depend on th
 and after the selection actions, and a handler for updates. The view callback receives the request, effective list
 criteria and result count. `resolveListSearch` from `@itrocks/list/search` captures the criteria from the routed HTML
 list action, including its mandatory scope and path authorisation.
+
+`listDependsOn({ columnsView })` supplies a renderer for selected cells and an optional view fragment for the full
+list. The callback receives the list type and its first applied sort entry, if any. Its `output(column, cell)`
+callback can return HTML, including an empty string, or `undefined` to use the standard renderer. The same callback
+applies to the initial list, feed rows, and cells added by the column selector. The optional `view` follows the
+usual `{ template, ...data }` contract. The optional `sort` replaces the storage sort for the initial list and
+feed rows while retaining the applied sort and direction in the interface. The callback leaves the selection,
+search and scope unchanged.

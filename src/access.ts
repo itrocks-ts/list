@@ -1,7 +1,11 @@
-import { Request }          from '@itrocks/action-request'
-import type { StateRecord } from '@itrocks/property-select'
-import type { Response }    from '@itrocks/request-response'
-import type { ListSearch }  from './search'
+import { Request }             from '@itrocks/action-request'
+import type { Type }           from '@itrocks/class-type'
+import type { StateRecord }    from '@itrocks/property-select'
+import type { Response }       from '@itrocks/request-response'
+import type { ProjectionCell } from '@itrocks/storage'
+import type { Sort }           from '@itrocks/storage'
+import type { ListColumn }     from './projection'
+import type { ListSearch }     from './search'
 
 export type ListAccess = {
 	authorise(path: string): Promise<void>
@@ -10,6 +14,7 @@ export type ListAccess = {
 }
 export type ListDependencies = {
 	access: (request: Request) => Promise<ListAccess>
+	columnsView?: (type: Type, primarySort?: Readonly<[string, boolean]>) => ListColumnsView | undefined
 	view:   (request: Request) => Promise<ListView | undefined>
 	selection?: {
 		update: (request: Request) => Promise<Response | undefined>
@@ -18,6 +23,9 @@ export type ListDependencies = {
 	}
 }
 export type ListView = { template: string; [name: string]: unknown }
+
+export type ListColumnOutput = (column: ListColumn, cell: ProjectionCell) => string | undefined
+export type ListColumnsView  = { output?: ListColumnOutput; sort?: Sort; view?: ListView }
 
 const dependencies: ListDependencies = {
 	access: async () => ({ authorise: async () => {} }),
@@ -42,4 +50,9 @@ export function listView(request: Request): Promise<ListView | undefined>
 export function listSelection()
 {
 	return dependencies.selection
+}
+
+export function listColumnsView(type: Type, primarySort?: Readonly<[string, boolean]>): ListColumnsView | undefined
+{
+	return dependencies.columnsView?.(type, primarySort)
 }

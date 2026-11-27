@@ -20,6 +20,7 @@ import { applyTransformer }            from '@itrocks/transformer'
 import { HTML }                        from '@itrocks/transformer'
 import { OUTPUT }                      from '@itrocks/transformer'
 import { resolveTransformer }          from '@itrocks/transformer'
+import type { ListColumnOutput }       from './access'
 import { escapeFilterText }            from './filter-summary'
 import { multipleOutputOf }            from './multiple-output'
 
@@ -114,9 +115,11 @@ export class ListColumn
 		return escapeFilterText(this.search)
 	}
 
-	async output(cell: ProjectionCell): Promise<string>
+	async output(cell: ProjectionCell, output?: ListColumnOutput): Promise<string>
 	{
-		if (cell.kind === 'absent') return ''
+		const rendered = output?.(this, cell)
+		if (rendered !== undefined)   return rendered
+		if (cell.kind === 'absent')   return ''
 		if (cell.kind === 'unloaded') return '<span class="unavailable">Unavailable</span>'
 		if (this.component) {
 			const cells = cell.value as ProjectionCell[]
