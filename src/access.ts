@@ -1,17 +1,28 @@
-import { Request }             from '@itrocks/action-request'
-import type { Type }           from '@itrocks/class-type'
-import type { StateRecord }    from '@itrocks/property-select'
-import type { Response }       from '@itrocks/request-response'
-import type { ProjectionCell } from '@itrocks/storage'
-import type { Sort }           from '@itrocks/storage'
-import type { ListColumn }     from './projection'
-import type { ListSearch }     from './search'
+import { Request }                  from '@itrocks/action-request'
+import type { Type }                from '@itrocks/class-type'
+import type { StateRecord }         from '@itrocks/property-select'
+import type { Response }            from '@itrocks/request-response'
+import type { ProjectionCell }      from '@itrocks/storage'
+import type { Sort }                from '@itrocks/storage'
+import type { ListColumn }          from './projection'
+import type { ListSearch }          from './search'
 
 export type ListAccess = {
 	authorise(path: string): Promise<void>
 	bootstrap?(paths: string[], state: StateRecord): Promise<object>
 	root?: string
 }
+export type ListColumnOutput = (
+	column: ListColumn, cell: ProjectionCell, property: ListColumn['property']
+) => string | undefined | Promise<string | undefined>
+
+export type ListColumnsView = {
+	objectFields?:  (column: ListColumn) => readonly string[] | undefined
+	output?:        ListColumnOutput
+	sort?:          Sort
+	view?:          ListView
+}
+
 export type ListDependencies = {
 	access: (request: Request) => Promise<ListAccess>
 	columnsView?: (type: Type, primarySort?: Readonly<[string, boolean]>) => ListColumnsView | undefined
@@ -23,9 +34,6 @@ export type ListDependencies = {
 	}
 }
 export type ListView = { template: string; [name: string]: unknown }
-
-export type ListColumnOutput = (column: ListColumn, cell: ProjectionCell) => string | undefined
-export type ListColumnsView  = { output?: ListColumnOutput; sort?: Sort; view?: ListView }
 
 const dependencies: ListDependencies = {
 	access: async () => ({ authorise: async () => {} }),

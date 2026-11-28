@@ -412,3 +412,50 @@ test('nested component columns share their singular parent identity and one comp
 		['Paris', '75001'])
 	assert.deepEqual(result.rows[1].cells.map(cell => cell.value), [[], []])
 })
+
+test('a column view receives the full path bound to the source object and its class', async () => {
+	const city    = Object.assign(new City, { country: Object.assign(new Country, { name: 'France' }) })
+	const invoice = Object.assign(new Invoice, { city, id: 41, number: '2026-041' })
+	const calls   = []
+	const session = {}
+	replaceListState({ session }, Invoice, { columns: ['city.country.name'] })
+	storage.dataSource = () => ({
+		count: async () => 1,
+		search: async (type, criteria, options) => {
+			calls.push({ criteria, options, type })
+			return [invoice]
+		},
+		select: async (rootType, paths) => ({
+			columns: paths.map(path => ({ kind: 'scalar', path })),
+			rootType,
+			rows: [{ cells: [{ kind: 'value', value: 'France' }], rootId: 41 }]
+		})
+	})
+	const authorised = []
+	listDependsOn({
+		access: async () => ({ authorise: async path => { authorised.push(path) } }),
+		columnsView: () => ({
+			objectFields: () => ['number'],
+			async output(column, cell, property) {
+				assert.equal(column.name, 'city.country.name')
+				assert.deepEqual(property.path, ['city', 'country', 'name'])
+				assert.equal(property.rootClass.type, Invoice)
+				assert.equal(property.rootClass.object, invoice)
+				assert.equal(property.object, city.country)
+				return `${property.rootClass.object.number}: ${cell.value}`
+			}
+		})
+	})
+	try {
+		const list = new List()
+		list.htmlTemplateResponse = content => content
+		const response = await list.html({ ...request({}, session), action: 'list', ids: [], route: '/invoice' })
+		assert.equal(response.objects[0].properties[0].outputOptionalContainer, '2026-041: France')
+		assert.equal(calls.length, 1)
+		assert.deepEqual(calls[0].options[0].ids, [41])
+		assert.ok(authorised.includes('number'))
+	}
+	finally {
+		listDependsOn({ access: async () => ({ authorise: async () => {} }), columnsView: undefined })
+	}
+})

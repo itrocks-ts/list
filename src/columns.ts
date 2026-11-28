@@ -1,17 +1,22 @@
 import { Type }                  from '@itrocks/class-type'
 import { ListReflectClass }      from '@itrocks/list-properties'
 import { Request }               from '@itrocks/request-response'
-import { Option }                from '@itrocks/storage'
 import { dataSource }            from '@itrocks/storage'
+import type { Identifier }       from '@itrocks/storage'
 import { Identifiers }           from '@itrocks/storage'
+import { Option }                from '@itrocks/storage'
 import { ProjectionCell }        from '@itrocks/storage'
 import { ProjectionResult }      from '@itrocks/storage'
 import { SearchType }            from '@itrocks/storage'
 import { Selection }             from '@itrocks/storage'
 import { Sort }                  from '@itrocks/storage'
+import type { ListAccess }       from './access'
 import type { ListColumnOutput } from './access'
+import type { ListColumnsView }  from './access'
 import { Parameter }             from './parameter'
 import { ListColumn }            from './projection'
+
+type ColumnObject = (column: ListColumn, id: Identifier) => object | undefined
 
 export class Columns<T extends object> extends Parameter implements Iterable<ListColumn>
 {
@@ -60,22 +65,9 @@ export class Columns<T extends object> extends Parameter implements Iterable<Lis
 		return this.properties.map(callback)
 	}
 
-	async projected(result: ProjectionResult, output?: ListColumnOutput)
+	async projected(result: ProjectionResult, output?: ListColumnOutput, objectOf?: ColumnObject)
 	{
-		if (
-			result.columns.some((column, index) => column.path !== this.properties[index]?.name)
-			|| (result.columns.length !== this.length)
-		) {
-			throw new Error('Projection columns do not match the list')
-		}
-		return Promise.all(result.rows.map(async row => ({
-			id: row.rootId,
-			properties: await Promise.all(
-				row.cells.map(async (cell, index) => ({
-					outputOptionalContainer: await this.properties[index].output(cell, output)
-				}))
-			)
-		})))
+		return renderProjectedRows(result, this.properties, output, objectOf)
 	}
 
 	readOptions(options = new Array<Option>)
@@ -107,6 +99,38 @@ export class Columns<T extends object> extends Parameter implements Iterable<Lis
 		return this.properties.unshift(property)
 	}
 
+}
+
+export async function projectColumnOutput<T extends object>(
+	type: Type<T>, source: Columns<T> | readonly ListColumn[], search: SearchType<T>, options: Option[],
+	access: ListAccess, view?: ListColumnsView
+)
+{
+	const columns       = [...source]
+	const objectColumns = new Set<ListColumn>()
+	const authorised    = new Set<string>()
+	for (const column of columns) {
+		const fields = view?.objectFields?.(column)
+		if (!fields) continue
+		objectColumns.add(column)
+		for (const field of fields) {
+			if (authorised.has(field)) continue
+			await access.authorise(field)
+			authorised.add(field)
+		}
+	}
+	const result  = await projectColumns(type, columns, search, options)
+	const objects = objectColumns.size && result.rows.length
+		? await dataSource().search(type, search, [new Identifiers(result.rows.map(row => row.rootId))])
+		: []
+	const byId     = new Map(objects.map(object => [String(object.id), object]))
+	const objectOf = objectColumns.size
+		? (column: ListColumn, id: Identifier) => objectColumns.has(column) ? byId.get(String(id)) : undefined
+		: undefined
+
+	return 'projected' in source
+		? source.projected(result, view?.output, objectOf)
+		: renderProjectedRows(result, columns, view?.output, objectOf)
 }
 
 export async function projectColumns<T extends object>(
@@ -200,4 +224,24 @@ export async function projectColumns<T extends object>(
 			}
 		}))
 	}
+}
+
+function renderProjectedRows(
+	result: ProjectionResult, columns: readonly ListColumn[], output?: ListColumnOutput, objectOf?: ColumnObject
+)
+{
+	if (
+		result.columns.some((column, index) => column.path !== columns[index]?.name)
+		|| (result.columns.length !== columns.length)
+	) {
+		throw new Error('Projection columns do not match the list')
+	}
+
+	return Promise.all(result.rows.map(async row => ({
+		id: row.rootId,
+		properties: await Promise.all(columns.map(async (column, index) => {
+			const object = objectOf?.(column, row.rootId)
+			return { outputOptionalContainer: await column.output(row.cells[index], output, object) }
+		}))
+	})))
 }

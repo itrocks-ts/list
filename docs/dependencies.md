@@ -42,9 +42,12 @@ criteria and result count. `resolveListSearch` from `@itrocks/list/search` captu
 list action, including its mandatory scope and path authorisation.
 
 `listDependsOn({ columnsView })` supplies a renderer for selected cells and an optional view fragment for the full
-list. The callback receives the list type and its first applied sort entry, if any. Its `output(column, cell)`
-callback can return HTML, including an empty string, or `undefined` to use the standard renderer. The same callback
+list. The callback receives the list type and its first applied sort entry, if any. Its
+`output(column, cell, property)` callback can return HTML, including an empty string, or `undefined` to use the
+standard renderer. It may also return a promise. The third argument is a `ReflectPropertyPath` with the full column
+path and the root class. Return the display dependency paths from `objectFields(column)` to attach the source
+object to that reflection. List authorises the paths before loading objects for the selected row IDs with the
+effective search criteria. Extensions declare the paths whose values they display. The same callback
 applies to the initial list, feed rows, and cells added by the column selector. The optional `view` follows the
 usual `{ template, ...data }` contract. The optional `sort` replaces the storage sort for the initial list and
-feed rows while retaining the applied sort and direction in the interface. The callback leaves the selection,
-search and scope unchanged.
+feed rows while retaining the applied sort and direction in the interface.

@@ -16,7 +16,7 @@ import { listSelection }          from './access'
 import { listView }               from './access'
 import { ColumnWidths }           from './column-widths'
 import { Columns }                from './columns'
-import { projectColumns }         from './columns'
+import { projectColumnOutput }    from './columns'
 import { Feed }                   from './feed'
 import { Filter }                 from './filter'
 import { filterAliases }          from './filter-summary'
@@ -115,15 +115,20 @@ export class List<T extends object = object> extends Action<T>
 					for (const field of column.fields ?? []) await access.authorise(`${column.name}.${field}`)
 				}
 				const ids = request.request.data.rowIds
-				if (typeof ids !== 'string') throw new Error('Visible row identities are required')
-				const result = requested.length ? await projectColumns(type, requested, search,
-					[new Identifiers(ids ? ids.split(',') : [])]) : undefined
-				const response = await Promise.all(requested.map(async (column, index) => ({
-					label: column.label, path: column.name, sortable: column.sortable,
-					rows: await Promise.all(result!.rows.map(async row => ({
-						id: row.rootId, html: await column.output(row.cells[index], columnsView?.output)
-					})))
-				})))
+				if (typeof ids !== 'string') {
+					throw new Error('Visible row identities are required')
+				}
+				const rows = requested.length
+					? await projectColumnOutput(
+						type, requested, search, [new Identifiers(ids ? ids.split(',') : [])], access, columnsView
+					)
+					: []
+				const response = requested.map((column, index) => ({
+					label:    column.label,
+					path:     column.name,
+					sortable: column.sortable,
+					rows:     rows.map(row => ({ id: row.id, html: row.properties[index].outputOptionalContainer }))
+				}))
 				save(this, request.request, type)
 				return this.jsonResponse({ columns: response })
 			}
@@ -137,18 +142,21 @@ export class List<T extends object = object> extends Action<T>
 				await access.authorise(path)
 				const column = new ListColumn(type, path)
 				for (const field of column.fields ?? []) await access.authorise(`${path}.${field}`)
-				if (request.request.data.validate === '1')
+				if (request.request.data.validate === '1') {
 					return this.jsonResponse({ label: column.label, path, sortable: column.sortable })
+				}
 				const ids = request.request.data.rowIds
-				if (typeof ids !== 'string') throw new Error('Visible row identities are required')
-				const result = await projectColumns(type, [column], search, [new Identifiers(
-					ids ? ids.split(',') : []
-				)])
+				if (typeof ids !== 'string') {
+					throw new Error('Visible row identities are required')
+				}
+				const rows = await projectColumnOutput(
+					type, [column], search, [new Identifiers(ids ? ids.split(',') : [])], access, columnsView
+				)
 				return this.jsonResponse({
-					label: column.label, path, sortable: column.sortable,
-					rows: await Promise.all(result.rows.map(async row => ({
-						id: row.rootId, html: await column.output(row.cells[0], columnsView?.output)
-					})))
+					label:    column.label,
+					path,
+					sortable: column.sortable,
+					rows:     rows.map(row => ({ id: row.id, html: row.properties[0].outputOptionalContainer }))
 				})
 			}
 			catch (error) {
@@ -160,9 +168,7 @@ export class List<T extends object = object> extends Action<T>
 		}
 		const sortOptions = columnsView?.sort ? [columnsView.sort] : sort.readOptions()
 		const options     = feed.readOptions(filter.readOptions(sortOptions))
-		const objects     = await columns.projected(
-			await projectColumns(type, [...columns], search, options), columnsView?.output
-		)
+		const objects     = await projectColumnOutput(type, columns, search, options, access, columnsView)
 
 		if (feed.offset) {
 			return this.htmlTemplateResponse({ objects, type }, request, feed.template)

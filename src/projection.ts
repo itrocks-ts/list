@@ -63,7 +63,7 @@ export class ListColumn
 	readonly fields?: readonly string[]
 	readonly label: string
 	readonly multiple: boolean
-	readonly property: ReturnType<typeof resolvePropertyPath>['property']
+	readonly property: ReflectPropertyPath<Record<string, unknown>, string>
 	readonly sortable: boolean
 	readonly target?: Type
 	reverse = false
@@ -102,7 +102,7 @@ export class ListColumn
 				resolved.targetMultiplicity === 'many' ? 'multiple-values' : 'unsupported-selection', name
 			)
 		}
-		this.property = new ReflectPropertyPath(root, name as never)
+		this.property = new ReflectPropertyPath(root as Type<Record<string, unknown>>, name)
 		this.target = resolved.target
 		this.label = resolved.segments.map(property => tr(displayOf(property.class.type, property.name))).join('.')
 		if (this.component) this.fields = this.component.column.fields
@@ -115,10 +115,15 @@ export class ListColumn
 		return escapeFilterText(this.search)
 	}
 
-	async output(cell: ProjectionCell, output?: ListColumnOutput): Promise<string>
+	async output(cell: ProjectionCell, output?: ListColumnOutput, object?: object): Promise<string>
 	{
-		const rendered = output?.(this, cell)
-		if (rendered !== undefined)   return rendered
+		if (output) {
+			const property = object
+				? new ReflectPropertyPath(object as Record<string, unknown>, this.name)
+				: this.property
+			const rendered = await output(this, cell, property)
+			if (rendered !== undefined) return rendered
+		}
 		if (cell.kind === 'absent')   return ''
 		if (cell.kind === 'unloaded') return '<span class="unavailable">Unavailable</span>'
 		if (this.component) {
