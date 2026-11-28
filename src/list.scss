@@ -60,6 +60,14 @@ table.objects {
 
 	}
 
+	> :is(thead, tbody) > tr > :nth-child(1 of th.select:not([hidden]) ~ :not([hidden])) {
+		border-left: 1px solid #d8d8d8;
+
+		> input[data-property-filter] {
+			border-left-width: 0;
+		}
+	}
+
 	> * > tr > .column-reorder {
 		--column-reorder-tint: inset 0 0 0 100vmax rgb(0 0 0 / 2%);
 		box-shadow: var(--column-reorder-tint);
