@@ -27,6 +27,7 @@ import { columnComparison }    from './front/search-expression'
 import { SearchComparison }    from './front/search-expression'
 import { SearchExpression }    from './front/search-expression'
 import { searchExpression }    from './front/search-expression'
+import type { ListColumnsView } from './access'
 import { Columns }             from './columns'
 import { dateSearch }          from './date-search'
 import { Parameter }           from './parameter'
@@ -136,10 +137,14 @@ export class Filter<T extends object> extends Parameter
 	protected columnCondition(type: Type, property: string, value: string): SearchType
 	{
 		let expression: SearchExpression
-		try { expression = searchExpression(value) }
+		try {
+			expression = searchExpression(value)
+		}
 		catch (error) {
-			if (!(error instanceof SyntaxError)) throw error
-			return { [property]: or() }
+			if (!(error instanceof SyntaxError)) {
+				throw error
+			}
+			return property ? { [property]: or() } : { [OR]: [] }
 		}
 		return this.condition(type, property, expression)
 	}
@@ -147,25 +152,33 @@ export class Filter<T extends object> extends Parameter
 	protected condition(type: Type, property: string, expression: SearchExpression, ancestors: readonly Type[] = [])
 		: SearchType
 	{
-		const resolved = resolvePropertyPath(type, property)
-		if (!resolved.target) {
+		const resolved = property ? resolvePropertyPath(type, property) : undefined
+		if (resolved && !resolved.target) {
 			const value = searchValue(scalarType(resolved.property.type), expression)
-			if (value === undefined && !ancestors.length) return {}
+			if ((value === undefined) && !ancestors.length) {
+				return {}
+			}
 			return { [property]: value ?? or() }
 		}
 		if (!('value' in expression)) {
 			const operator = (expression.operator === 'AND') ? AND : OR
 			return { [operator]: expression.operands.map(operand => this.condition(type, property, operand, ancestors)) }
 		}
-		if (resolved.targetMultiplicity === 'one' && expression.comparison === undefined) {
+		if ((resolved?.targetMultiplicity === 'one') && (expression.comparison === undefined)) {
 			const empty = emptyCriterion(expression.value)
-			if (empty) return { [property]: empty === 'empty' ? isNull() : isNotNull() }
+			if (empty) {
+				return { [property]: (empty === 'empty') ? isNull() : isNotNull() }
+			}
 		}
-		if (ancestors.includes(resolved.target)) throw new Error(`Cyclic search representation: ${property}`)
-		const branch = [...ancestors, resolved.target]
+		const target = resolved?.target ?? type
+		if (ancestors.includes(target)) {
+			throw new Error(`Cyclic search representation: ${property}`)
+		}
+		const branch = [...ancestors, target]
+		const prefix = property ? `${property}.` : ''
+
 		return {
-			[OR]: representativeOf(resolved.target)
-				.map(name => this.condition(type, `${property}.${String(name)}`, expression, branch))
+			[OR]: representativeOf(target).map(name => this.condition(type, prefix + String(name), expression, branch))
 		}
 	}
 
@@ -199,13 +212,16 @@ export class Filter<T extends object> extends Parameter
 		return options
 	}
 
-	searchObject(type: Type)
+	searchObject(type: Type, searchOnOwner?: ListColumnsView['searchOnOwner'])
 	{
 		const search: SearchType   = {}
 		const groups: SearchType[] = []
 		for (const [property, value] of Object.entries(this.search)) {
 			if (value === '') continue
-			const condition = this.columnCondition(type, property, value)
+			const path = searchOnOwner?.(resolvePropertyPath(type, property))
+				? property.substring(0, property.lastIndexOf('.'))
+				: property
+			const condition = this.columnCondition(type, path, value)
 			if (Object.hasOwn(condition, AND) || Object.hasOwn(condition, OR)) {
 				groups.push(condition)
 			}

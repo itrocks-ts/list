@@ -95,15 +95,19 @@ export class List<T extends object = object> extends Action<T>
 		for (const column of columns) column.search = filter.search[column.name] ?? ''
 		sort.getParams(request.request, type)
 
-		const activeSearch = await listSearch(request, filter, access, scope)
-		if (captureListSearch(request, activeSearch)) return this.htmlResponse('', 204)
-		if (!batch) save(this, request.request, type)
+		const columnsView  = listColumnsView(type, Object.entries(sort.sorted ?? {})[0])
+		const activeSearch = await listSearch(request, filter, access, scope, columnsView?.searchOnOwner)
+		if (captureListSearch(request, activeSearch)) {
+			return this.htmlResponse('', 204)
+		}
+		if (!batch) {
+			save(this, request.request, type)
+		}
 
 		const search = activeSearch.criteria
 		for (const path of Object.keys(sort.sorted ?? {})) {
 			await access.authorise(path)
 		}
-		const columnsView = listColumnsView(type, Object.entries(sort.sorted ?? {})[0])
 		if (batch) {
 			try {
 				const names = (request.request.data.loadColumns as string).split(',').filter(Boolean)

@@ -51,3 +51,7 @@ effective search criteria. Extensions declare the paths whose values they displa
 applies to the initial list, feed rows, and cells added by the column selector. The optional `view` follows the
 usual `{ template, ...data }` contract. The optional `sort` replaces the storage sort for the initial list and
 feed rows while retaining the applied sort and direction in the interface.
+
+With `searchOnOwner(property)`, a column extension can make a filter search the object owning the configured
+property. List applies the same representative matching used for object columns and authorises the resulting
+paths. For a property at the root, the filter searches the listed object.

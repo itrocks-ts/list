@@ -1,6 +1,7 @@
 import { Request }                  from '@itrocks/action-request'
 import type { Type }                from '@itrocks/class-type'
 import type { StateRecord }         from '@itrocks/property-select'
+import type { ResolvedPropertyPath } from '@itrocks/reflect-path'
 import type { Response }            from '@itrocks/request-response'
 import type { ProjectionCell }      from '@itrocks/storage'
 import type { Sort }                from '@itrocks/storage'
@@ -19,6 +20,7 @@ export type ListColumnOutput = (
 export type ListColumnsView = {
 	objectFields?:  (column: ListColumn) => readonly string[] | undefined
 	output?:        ListColumnOutput
+	searchOnOwner?: (property: ResolvedPropertyPath) => boolean
 	sort?:          Sort
 	view?:          ListView
 }
